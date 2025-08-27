@@ -1,1 +1,1 @@
-Clojure library to parse and generate RFC 8941 Structured Field Values for HTTP
+Clojure library to parse and generate RFC 9651 Structured Field Values for HTTP

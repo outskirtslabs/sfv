@@ -1,0 +1,18 @@
+#kaocha/v1 
+{:tests
+ [{:id           :unit-jvm
+   :type         :kaocha.type/clojure.test
+   :test-paths   ["test"]
+   :source-paths ["src"]
+   :ns-patterns  ["-test$"]}
+  
+  {:id           :unit-cljs
+   :type         :kaocha.type/cljs
+   :test-paths   ["test"]
+   :source-paths ["src"]
+   :cljs/timeout 10000
+   :cljs/repl-env kaocha.cljs.node-repl/repl-env}]
+
+ :plugins [:kaocha.plugin/randomize
+           :kaocha.plugin/filter
+           :kaocha.plugin/capture-output]}
