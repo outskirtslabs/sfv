@@ -35,6 +35,16 @@
             pkgs.cljfmt
             pkgs.babashka
             pkgs.git
+            (pkgs.writeScriptBin "run-clojure-mcp" ''
+            #!/usr/bin/env bash
+              set -euo pipefail
+              PORT_FILE=''${1:-.nrepl-port}
+              PORT=''${1:-4888}
+              if [ -f "$PORT_FILE" ]; then
+              PORT=$(cat ''${PORT_FILE})
+              fi
+              ${clojure}/bin/clojure -X:mcp/clojure :port $PORT
+            '')
           ];
           env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath libraries;
           shellHook = ''
