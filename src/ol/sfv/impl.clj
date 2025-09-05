@@ -529,9 +529,15 @@
                     [parameters ctx'''''] (parse-parameters ctx'''')]
                 [{:type :inner-list :items inner-list :params parameters} ctx'''''])
               (let [[item ctx'''] (parse-item ctx'')
-                    inner-list' (conj inner-list item)
-                    ctx'''' (skip-sp ctx''')]
-                (recur ctx'''' inner-list')))))))))
+                    next-ch (peek-char ctx''')]
+                ;; the rfc requires items in inner lists to be separated by spaces
+                ;; the next character must be either SP or ')'
+                (when-not (or (= next-ch \space) (= next-ch \)) (eof? ctx'''))
+                  (parse-error ctx''' "Expected SP or ')' in Inner List"
+                               :found next-ch :expected "SP or ')'"))
+                (let [inner-list' (conj inner-list item)
+                      ctx'''' (skip-sp ctx''')]
+                  (recur ctx'''' inner-list'))))))))))
 (defn parse-item-or-inner-list [ctx]
   ;; RFC 9651 §4.2.1.1: Parsing an Item or Inner List
   ;; 1. If the first character is "(", return parse-inner-list
