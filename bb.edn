@@ -6,7 +6,6 @@
                     [babashka.tasks :refer [shell]])
          test      (apply clojure "-M:kaocha" *command-line-args*)
          test.jvm (clojure "-M:kaocha" "--focus" ":unit-jvm")
-         test.cljs (clojure "-M:cljs" "-e" "")
          deps-tree (clojure "-X:deps tree :aliases '[:dev]'")
          dev {:doc "Start a local development server" :task (clojure "-M:dev:repl/dev")}
          fmt (shell "cljfmt -v fix src test")
