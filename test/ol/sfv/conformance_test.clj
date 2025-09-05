@@ -10,9 +10,8 @@
 (defn load-test-cases
   "Load test cases from a JSON file in the structured-field-tests directory"
   [filename]
-  (let [file-path (str "extra/structured-field-tests/" filename)]
-    (with-open [reader (io/reader file-path)]
-      (json/read-json reader :key-fn keyword))))
+  (with-open [reader (io/reader (io/resource (str "fixtures/" filename)))]
+    (json/read-json reader :key-fn keyword)))
 
 (defn base32->bytes
   "Decode Base32 to bytes using Apache Commons Codec"
