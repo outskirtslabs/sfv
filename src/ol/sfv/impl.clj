@@ -1,6 +1,8 @@
 (ns ol.sfv.impl
+  (:refer-clojure :exclude [integer? decimal? string? bytes bytes?])
   (:require [clojure.string :as str])
-  (:import (java.nio.charset StandardCharsets)))
+  (:import (java.nio.charset StandardCharsets)
+           (java.util Base64)))
 
 ;; Minimal implementation scaffold for RFC9651 parsing in ol.sfv.impl
 ;; This file provides core helpers, char classes, parse-key, and stubs
@@ -26,8 +28,7 @@
 (defn dstring? [x] (= (:type x) :dstring))
 
 (defn bytes [b] {:type :bytes :value b})
-(defn bytes? [x] (or (instance? (Class/forName "[B") x)
-                     (instance? java.nio.ByteBuffer x)))
+(defn bytes? [x] (= (:type x) :bytes))
 
 (defn bool [b] {:type :boolean :value (boolean b)})
 (defn bool? [x] (= (:type x) :boolean))
@@ -54,24 +55,46 @@
   ([bare ps] {:type :item :bare bare :params ps}))
 (defn item? [x] (= (:type x) :item))
 
+(defn item-bare [i] (:bare i))
+(defn item-params [i] (:params i))
+
 (defn inner-list
   ([items] {:type :inner-list :items items :params []})
   ([items ps] {:type :inner-list :items items :params ps}))
 
+(defn inner-list? [x] (= (:type x) :inner-list))
+(defn inner-items [il] (:items il))
+(defn inner-params [il] (:params il))
+
 (defn sf-list [members] {:type :list :members members})
+
+(defn sf-list? [x] (= (:type x) :list))
+(defn list-members [l] (:members l))
 (defn sf-dict [entries] {:type :dict :entries entries})
+
+(defn sf-dict? [x] (= (:type x) :dict))
+(defn dict-keys [d] (mapv first (:entries d)))
+(defn dict-get [d k] (some (fn [[kk vv]] (when (= kk k) vv)) (:entries d)))
+(defn dict->pairs [d] (:entries d))
 
 (defn flag
   ([] {:type :flag :params []})
   ([ps] {:type :flag :params ps}))
+
+(defn flag? [x] (= (:type x) :flag))
 
 ;; ---------------------------------------------------------------------------
 ;; Scanner / cursor utilities
 
 (defn ascii-string [s]
   (cond
-    (string? s) s
-    (instance? (Class/forName "[B") s) (String. ^bytes s StandardCharsets/US_ASCII)
+    (clojure.core/string? s)
+    (do (doseq [ch s]
+          (when (> (int ch) 127)
+            (throw (ex-info "Non-ASCII character in string" {:input s}))))
+        s)
+    (instance? (Class/forName "[B") s)
+    (String. ^bytes s StandardCharsets/US_ASCII)
     :else (throw (ex-info "ascii-string: expected string or bytes" {:input s}))))
 
 (defn init-ctx [s-or-bytes]
@@ -113,10 +136,21 @@
 (defn tchar? [ch] (or (digit? ch) (alpha? ch) (contains? tchar-set ch)))
 (defn token-char? [ch] (or (tchar? ch) (= ch \:) (= ch \/)))
 
+;; Helper for hex digit validation and conversion
+(defn lc-hexdig? [ch]
+  (and ch (or (<= (int \0) (int ch) (int \9))
+              (<= (int \a) (int ch) (int \f)))))
+
+(defn hex-digit-value [ch]
+  (cond
+    (<= (int \0) (int ch) (int \9)) (- (int ch) (int \0))
+    (<= (int \a) (int ch) (int \f)) (- (int ch) (int \a) -10)
+    :else (throw (IllegalArgumentException. (str "Invalid hex digit: " ch)))))
+
 (defn parse-error [ctx reason & {:keys [found expected]}]
-  (throw (ex-info reason (merge {:ol.sfv/error true :pos (:i ctx)}
-                                 (when found {:found found})
-                                 (when expected {:expected expected})))) )
+  (throw (ex-info (str "parse error: " reason) (merge {:ol.sfv/error true :pos (:i ctx)
+                                                       (when found {:found found})
+                                                       (when expected {:expected expected})}))))
 
 ;; ---------------------------------------------------------------------------
 ;; parse-key (RFC 9651 §4.2.3.3)
@@ -124,7 +158,7 @@
 (defn parse-key [ctx]
   (let [ch (peek-char ctx)]
     (when-not (and ch (or (lcalpha? ch) (= ch \*)))
-      (parse-error ctx "Invalid key start" :found ch :expected "lcalpha or '*'") )
+      (parse-error ctx "Invalid key start" :found ch :expected "lcalpha or '*'"))
     (let [s (:s ctx) n (:n ctx) i (:i ctx) sb (StringBuilder.)]
       (.append sb (peek-char ctx))
       (loop [i (inc i)]
@@ -171,12 +205,15 @@
                       (when (> (.length sb) 16) (parse-error ctx "Decimal too long"))
                       (recur (inc i) :decimal sb))
 
+                  (and (= type :decimal) (= ch \.))
+                  (parse-error ctx "Multiple decimal points not allowed" :found ch :expected "DIGIT")
+
                   :else
                   (let [input-number (.toString sb) ctx' (assoc ctx :i i)]
                     (if (= type :integer)
                       (let [num (Long/parseLong input-number)] [{:type :integer :value (* sign num)} ctx'])
                       (do (when (.endsWith input-number ".") (parse-error ctx "Decimal has trailing dot"))
-                          (let [dot-pos (.indexOf input-number \\.)
+                          (let [dot-pos (.indexOf input-number ".")
                                 frac-len (if (neg? dot-pos) 0 (- (.length input-number) (inc dot-pos)))]
                             (when (> frac-len 3) (parse-error ctx "Decimal fraction too long"))
                             (let [bd (java.math.BigDecimal. input-number)
@@ -187,7 +224,7 @@
                 (if (str/blank? input-number)
                   (parse-error ctx "No digits parsed for number")
                   (do (when (.endsWith input-number ".") (parse-error ctx "Decimal has trailing dot"))
-                      (let [dot-pos (.indexOf input-number \\.)]
+                      (let [dot-pos (.indexOf input-number ".")]
                         (if (= dot-pos -1)
                           (let [num (Long/parseLong input-number)] [{:type :integer :value (* sign num)} ctx'])
                           (let [frac-len (- (.length input-number) (inc dot-pos))]
@@ -202,28 +239,366 @@
 ;; the exact step-by-step algorithms in RFC 9651 (Section 4.2 and 4.1).
 
 ;; Stub other parsers for now (kept until implemented):
-(defn parse-string [ctx] (parse-error ctx "not implemented"))
-(defn parse-token [ctx] (parse-error ctx "not implemented"))
-(defn parse-byte-sequence [ctx] (parse-error ctx "not implemented"))
-(defn parse-boolean [ctx] (parse-error ctx "not implemented"))
-(defn parse-date [ctx] (parse-error ctx "not implemented"))
-(defn parse-display-string [ctx] (parse-error ctx "not implemented"))
-(defn parse-bare-item [ctx] (parse-error ctx "not implemented"))
-(defn parse-parameters [ctx] (parse-error ctx "not implemented"))
-(defn parse-item [ctx] (parse-error ctx "not implemented"))
-(defn parse-inner-list [ctx] (parse-error ctx "not implemented"))
-(defn parse-item-or-inner-list [ctx] (parse-error ctx "not implemented"))
-(defn parse-list-members [ctx] (parse-error ctx "not implemented"))
-(defn parse-list [s-or-bytes] (parse-error {:i 0} "not implemented"))
-(defn parse-dictionary [s-or-bytes] (parse-error {:i 0} "not implemented"))
-(defn parse [field-type s-or-bytes] (parse-error {:i 0} "not implemented"))
+(defn parse-string [ctx]
+  ;; RFC 9651 §4.2.5: Parsing a String
+  (let [sb (StringBuilder.)
+        ch (peek-char ctx)]
+    (when-not (= ch \")
+      (parse-error ctx "Expected opening DQUOTE for string" :found ch :expected "\""))
+    (let [[_ ctx'] (consume-char ctx)]
+      (loop [ctx' ctx']
+        (if (eof? ctx')
+          (parse-error ctx' "Unterminated string")
+          (let [[char ctx''] (consume-char ctx')]
+            (cond
+              (= char \\)
+              (if (eof? ctx'')
+                (parse-error ctx'' "Unterminated escape sequence")
+                (let [[next-char ctx'''] (consume-char ctx'')]
+                  (if (or (= next-char \") (= next-char \\))
+                    (do (.append sb next-char)
+                        (recur ctx'''))
+                    (parse-error ctx''' "Invalid escape sequence" :found next-char :expected "\" or \\"))))
+
+              (= char \")
+              [{:type :string :value (.toString sb)} ctx'']
+
+              (or (<= 0 (int char) 0x1F) (<= 0x7F (int char) 0xFF))
+              (parse-error ctx'' "Invalid character in string" :found char :expected "VCHAR or SP")
+
+              :else
+              (do (.append sb char)
+                  (recur ctx'')))))))))
+(defn parse-token [ctx]
+  ;; RFC 9651 §4.2.6: Parsing a Token
+  ;; 1. If the first character of input_string is not ALPHA or "*", fail parsing.
+  (let [ch (peek-char ctx)]
+    (when-not (and ch (or (alpha? ch) (= ch \*)))
+      (parse-error ctx "Invalid token start" :found ch :expected "ALPHA or '*'"))
+    ;; 2. Let output_string be an empty string.
+    (let [sb (StringBuilder.)]
+      ;; 3. While input_string is not empty:
+      (loop [ctx' ctx]
+        (if (eof? ctx')
+          ;; 4. Return output_string.
+          [{:type :token :value (.toString sb)} ctx']
+          ;; 3.1. If the first character of input_string is not in tchar, ":", or "/", return output_string.
+          (let [ch (peek-char ctx')]
+            (if (token-char? ch)
+              ;; 3.2. Let char be the result of consuming the first character of input_string.
+              (let [[char ctx''] (consume-char ctx')]
+                ;; 3.3. Append char to output_string.
+                (.append sb char)
+                (recur ctx''))
+              ;; Return when we hit a non-token character
+              [{:type :token :value (.toString sb)} ctx'])))))))
+(defn parse-byte-sequence [ctx]
+  ;; RFC 9651 §4.2.7: Parsing a Byte Sequence
+  ;; 1. If the first character of input_string is not ":", fail parsing.
+  (let [ch (peek-char ctx)]
+    (when-not (= ch \:)
+      (parse-error ctx "Expected opening ':' for byte sequence" :found ch :expected ":"))
+    ;; 2. Discard the first character of input_string.
+    (let [[_ ctx'] (consume-char ctx)
+          s (:s ctx')
+          i (:i ctx')
+          end-colon-pos (.indexOf ^String s ":" i)]
+      ;; 3. If there is not a ":" character before the end of input_string, fail parsing.
+      (when (= end-colon-pos -1)
+        (parse-error ctx' "Missing closing ':' for byte sequence"))
+      ;; 4. Let b64_content be the result of consuming content up to but not including the first ":".
+      (let [b64-content (.substring ^String s i end-colon-pos)
+            ctx'' (assoc ctx' :i (inc end-colon-pos))] ;; 5. Consume the ":" character
+        ;; 6. If b64_content contains a character not in ALPHA, DIGIT, "+", "/", and "=", fail parsing.
+        (doseq [ch b64-content]
+          (when-not (or (alpha? ch) (digit? ch) (= ch \+) (= ch \/) (= ch \=))
+            (parse-error ctx' "Invalid base64 character" :found ch :expected "ALPHA, DIGIT, '+', '/', or '='")))
+        ;; 7. Let binary_content be the result of base64-decoding, synthesizing padding if necessary.
+        (try
+          (let [decoder (Base64/getDecoder)
+                binary-content (.decode decoder ^String b64-content)]
+            ;; 8. Return binary_content.
+            [{:type :bytes :value binary-content} ctx''])
+          (catch Exception _
+            (parse-error ctx' "Invalid base64 encoding")))))))
+(defn parse-sfv-boolean [ctx]
+  ;; RFC 9651 §4.2.8: Parsing a Boolean
+  ;; 1. If the first character of input_string is not "?", fail parsing.
+  (let [ch (peek-char ctx)]
+    (when-not (= ch \?)
+      (parse-error ctx "Expected '?' for boolean" :found ch :expected "?"))
+    ;; 2. Discard the first character of input_string.
+    (let [[_ ctx'] (consume-char ctx)
+          ch2 (peek-char ctx')]
+      (cond
+        ;; 3. If the first character matches "1", discard and return true.
+        (= ch2 \1)
+        (let [[_ ctx''] (consume-char ctx')]
+          [{:type :boolean :value true} ctx''])
+        ;; 4. If the first character matches "0", discard and return false.
+        (= ch2 \0)
+        (let [[_ ctx''] (consume-char ctx')]
+          [{:type :boolean :value false} ctx''])
+        ;; 5. No value has matched; fail parsing.
+        :else
+        (parse-error ctx' "Expected '0' or '1' after '?'" :found ch2 :expected "0 or 1")))))
+(defn parse-date [ctx]
+  ;; RFC 9651 §4.2.9: Parsing a Date
+  ;; 1. If the first character of input_string is not "@", fail parsing.
+  (let [ch (peek-char ctx)]
+    (when-not (= ch \@)
+      (parse-error ctx "Expected '@' for date" :found ch :expected "@"))
+    ;; 2. Discard the first character of input_string.
+    (let [[_ ctx'] (consume-char ctx)
+          ;; 3. Let output_date be the result of running Parsing an Integer or Decimal with input_string.
+          [output-date ctx''] (parse-integer-or-decimal ctx')]
+        ;; 4. If output_date is a Decimal, fail parsing.
+      (when (= (:type output-date) :decimal)
+        (parse-error ctx'' "Date must be an integer, not decimal"))
+        ;; 5. Return output_date.
+      [{:type :date :value (:value output-date)} ctx''])))
+(defn parse-display-string [ctx]
+  ;; RFC 9651 §4.2.10: Parsing a Display String
+  ;; 1. If the first two characters are not "%" followed by DQUOTE, fail parsing.
+  (let [ch1 (peek-char ctx)]
+    (when-not (= ch1 \%)
+      (parse-error ctx "Expected '%' for display string" :found ch1 :expected "%"))
+    (let [[_ ctx'] (consume-char ctx)
+          ch2 (peek-char ctx')]
+      (when-not (= ch2 \")
+        (parse-error ctx' "Expected '\"' after '%' for display string" :found ch2 :expected "\""))
+      ;; 2. Discard the first two characters.
+      (let [[_ ctx''] (consume-char ctx')]
+        ;; 3. Let byte_array be an empty byte array.
+        (loop [ctx'' ctx'' byte-array []]
+          ;; 4. While input_string is not empty:
+          (if (eof? ctx'')
+            ;; 5. Reached the end without finding closing DQUOTE; fail parsing.
+            (parse-error ctx'' "Unterminated display string")
+            (let [[char ctx'''] (consume-char ctx'')]
+              (cond
+                ;; 4.2. If char is in range %x00-1f or %x7f-ff, fail parsing.
+                (or (<= 0 (int char) 0x1F) (<= 0x7F (int char) 0xFF))
+                (parse-error ctx''' "Invalid character in display string" :found char :expected "VCHAR or SP")
+
+                ;; 4.3. If char is "%":
+                (= char \%)
+                (if (< (+ (:i ctx''') 2) (:n ctx'''))
+                  (let [hex1 (.charAt ^String (:s ctx''') (:i ctx'''))
+                        hex2 (.charAt ^String (:s ctx''') (+ (:i ctx''') 1))]
+                    ;; 4.3.2. If octet_hex contains characters outside 0-9 or a-f, fail parsing.
+                    (when-not (and (lc-hexdig? hex1) (lc-hexdig? hex2))
+                      (parse-error ctx''' "Invalid hex digits in display string" :found (str hex1 hex2) :expected "0-9 or a-f"))
+                    ;; 4.3.3. Let octet be the result of hex decoding.
+                    (let [octet (+ (* 16 (hex-digit-value hex1)) (hex-digit-value hex2))
+                          ctx'''' (update ctx''' :i + 2)]
+                      ;; 4.3.4. Append octet to byte_array.
+                      (recur ctx'''' (conj byte-array octet))))
+                  ;; 4.3.1. Not enough characters, fail parsing.
+                  (parse-error ctx''' "Incomplete hex escape in display string"))
+
+;; 4.4. If char is DQUOTE:
+                (= char \")
+                (if (empty? byte-array)
+                  [{:type :dstring :value ""} ctx''']
+                  ;; 4.4.1. Let unicode_sequence be the result of decoding byte_array as UTF-8.
+                  (let [unicode-sequence (apply str (map #(clojure.core/char %) byte-array))]
+                    ;; 4.4.2. Return unicode_sequence.
+                    [{:type :dstring :value unicode-sequence} ctx''']))
+
+                ;; 4.5. Otherwise, if char is not "%" or DQUOTE:
+                :else
+                ;; 4.5.1. Let byte be the result of applying ASCII encoding to char.
+                ;; 4.5.2. Append byte to byte_array.
+                (recur ctx''' (conj byte-array (int char)))))))))))
+(defn parse-bare-item [ctx]
+  ;; RFC 9651 §4.2.3.1: Parsing a Bare Item
+  (let [ch (peek-char ctx)]
+    (cond
+      ;; 1. If the first character is "-" or DIGIT, parse Integer or Decimal
+      (or (= ch \-) (digit? ch))
+      (parse-integer-or-decimal ctx)
+
+      ;; 2. If the first character is DQUOTE, parse String
+      (= ch \")
+      (parse-string ctx)
+
+      ;; 3. If the first character is ALPHA or "*", parse Token
+      (or (alpha? ch) (= ch \*))
+      (parse-token ctx)
+
+      ;; 4. If the first character is ":", parse Byte Sequence
+      (= ch \:)
+      (parse-byte-sequence ctx)
+
+      ;; 5. If the first character is "?", parse Boolean
+      (= ch \?)
+      (parse-sfv-boolean ctx)
+
+      ;; 6. If the first character is "@", parse Date
+      (= ch \@)
+      (parse-date ctx)
+
+      ;; 7. If the first character is "%", parse Display String
+      (= ch \%)
+      (parse-display-string ctx)
+
+      ;; 8. Otherwise, the item type is unrecognized; fail parsing
+      :else
+      (parse-error ctx "Unrecognized bare item type" :found ch :expected "-, DIGIT, \", ALPHA, *, :, ?, @, or %"))))
+(defn parse-parameters [ctx]
+  ;; RFC 9651 §4.2.3.2: Parsing Parameters
+  ;; 1. Let parameters be an empty, ordered map.
+  (loop [ctx ctx parameters []]
+    ;; 2. While input_string is not empty:
+    (if (eof? ctx)
+      ;; 3. Return parameters.
+      [parameters ctx]
+      (let [ch (peek-char ctx)]
+        ;; 2.1. If the first character is not ";", exit the loop.
+        (if-not (= ch \;)
+          [parameters ctx]
+          ;; 2.2. Consume the ";" character from the beginning.
+          (let [[_ ctx'] (consume-char ctx)
+                ;; 2.3. Discard any leading SP characters.
+                ctx'' (skip-sp ctx')
+                ;; 2.4. Let param_key be the result of running Parsing a Key.
+                [param-key ctx'''] (parse-key ctx'')
+                ;; 2.5. Let param_value be Boolean true.
+                param-value {:type :boolean :value true}
+                ch2 (peek-char ctx''')]
+            ;; 2.6. If the first character is "=":
+            (if (= ch2 \=)
+              ;; 2.6.1. Consume the "=" character.
+              (let [[_ ctx''''] (consume-char ctx''')
+                    ;; 2.6.2. Let param_value be the result of running Parsing a Bare Item.
+                    [param-value' ctx'''''] (parse-bare-item ctx'''')]
+                ;; 2.7 & 2.8. Append/overwrite key param_key with value param_value (last-write-wins).
+                (recur ctx''''' (conj (filterv #(not= (first %) param-key) parameters)
+                                      [param-key param-value'])))
+              ;; No "=" found, use default Boolean true value
+              (recur ctx''' (conj (filterv #(not= (first %) param-key) parameters)
+                                  [param-key param-value])))))))))
+(defn parse-item [ctx]
+  ;; RFC 9651 §4.2.3: Parsing an Item
+  ;; 1. Let bare_item be the result of running Parsing a Bare Item with input_string.
+  (let [[bare-item ctx'] (parse-bare-item ctx)
+        ;; 2. Let parameters be the result of running Parsing Parameters with input_string.
+        [parameters ctx''] (parse-parameters ctx')]
+    ;; 3. Return the tuple (bare_item, parameters).
+    [{:type :item :bare bare-item :params parameters} ctx'']))
+(defn parse-inner-list [ctx]
+  (let [ch (peek-char ctx)]
+    (when-not (= ch \()
+      (parse-error ctx "Expected opening '(' for inner list" :found ch :expected "("))
+    (let [[_ ctx'] (consume-char ctx)
+          ctx'' (skip-sp ctx')]
+      (loop [ctx'' ctx'' inner-list []]
+        (if (eof? ctx'')
+          (parse-error ctx'' "Unterminated inner list")
+          (let [ch (peek-char ctx'')]
+            (if (= ch \))
+              (let [[_ ctx'''] (consume-char ctx'')
+                    ctx'''' (skip-sp ctx''')
+                    [parameters ctx'''''] (parse-parameters ctx'''')]
+                [{:type :inner-list :items inner-list :params parameters} ctx'''''])
+              (let [[item ctx'''] (parse-item ctx'')
+                    inner-list' (conj inner-list item)
+                    ctx'''' (skip-sp ctx''')]
+                (recur ctx'''' inner-list')))))))))
+(defn parse-item-or-inner-list [ctx]
+  ;; RFC 9651 §4.2.1.1: Parsing an Item or Inner List
+  ;; 1. If the first character is "(", return parse-inner-list
+  (let [ch (peek-char ctx)]
+    (if (= ch \()
+      (parse-inner-list ctx)
+      ;; 2. Otherwise, return parse-item
+      (parse-item ctx))))
+(defn parse-list-members [ctx]
+  ;; Parse comma-separated list members
+  (loop [ctx ctx members []]
+    (let [ctx' (skip-ows ctx)]
+      (if (eof? ctx')
+        [members ctx']
+        (let [[member ctx''] (parse-item-or-inner-list ctx')
+              members' (conj members member)
+              ctx''' (skip-ows ctx'')]
+          (if (eof? ctx''')
+            [members' ctx''']
+            (let [ch (peek-char ctx''')]
+              (if (= ch \,)
+                (let [[_ ctx''''] (consume-char ctx''')]
+                  (recur ctx'''' members'))
+                [members' ctx''']))))))))
+(defn parse-list [s-or-bytes]
+  ;; RFC 9651 §4.2.1: Parsing a List
+  (let [ctx (init-ctx s-or-bytes)
+        ctx' (skip-sp ctx)
+        [members ctx''] (parse-list-members ctx')
+        ctx''' (skip-sp ctx'')]
+    (when-not (eof? ctx''')
+      (parse-error ctx''' "Unexpected characters after list"))
+    {:type :list :members members}))
+
+(defn parse-dict [s-or-bytes]
+  ;; RFC 9651 §4.2.2: Parsing a Dictionary
+  (let [ctx (init-ctx s-or-bytes)
+        ctx' (skip-sp ctx)]
+    (loop [ctx ctx' entries []]
+      (let [ctx (skip-ows ctx)]
+        (if (eof? ctx)
+          {:type :dict :entries entries}
+          (let [[key ctx] (parse-key ctx)
+                ch (peek-char ctx)]
+            (if (= ch \=)
+              ;; Key=Value
+              (let [[_ ctx] (consume-char ctx)
+                    [member ctx] (parse-item-or-inner-list ctx)
+                    entries' (conj (filterv #(not= (first %) key) entries) [key member])
+                    ctx (skip-ows ctx)]
+                (if (eof? ctx)
+                  {:type :dict :entries entries'}
+                  (let [ch2 (peek-char ctx)]
+                    (if (= ch2 \,)
+                      (let [[_ ctx] (consume-char ctx)]
+                        (recur ctx entries'))
+                      (parse-error ctx "Expected comma or end of input" :found ch2 :expected ",")))))
+              ;; Key only (boolean flag)
+              (let [[params ctx] (parse-parameters ctx)
+                    flag-item {:type :flag :params params}
+                    entries' (conj (filterv #(not= (first %) key) entries) [key flag-item])
+                    ctx (skip-ows ctx)]
+                (if (eof? ctx)
+                  {:type :dict :entries entries'}
+                  (let [ch2 (peek-char ctx)]
+                    (if (= ch2 \,)
+                      (let [[_ ctx] (consume-char ctx)]
+                        (recur ctx entries'))
+                      (parse-error ctx "Expected comma or end of input" :found ch2 :expected ","))))))))))))
+(defn parse-dictionary [s-or-bytes]
+  (parse-dict s-or-bytes))
+(defn parse [field-type s-or-bytes]
+  ;; RFC 9651 §4.2: Parsing Structured Fields
+  (case field-type
+    "list" (parse-list s-or-bytes)
+    "dictionary" (parse-dict s-or-bytes)
+    "item" (let [ctx (init-ctx s-or-bytes)
+                 ctx' (skip-sp ctx)
+                 [item ctx''] (parse-item ctx')
+                 ctx''' (skip-sp ctx'')]
+             (when-not (eof? ctx''')
+               (parse-error ctx''' "Unexpected characters after item"))
+             item)
+    (parse-error {:i 0} (str "Unknown field type: " field-type))))
 
 ;; Serialization stubs (to be implemented)
-(defn serialize [x] (parse-error {:i 0} "not implemented"))
-(defn serialize-list [l] (parse-error {:i 0} "not implemented"))
-(defn serialize-dict [d] (parse-error {:i 0} "not implemented"))
-(defn serialize-item [i] (parse-error {:i 0} "not implemented"))
+(defn serialize [_x] (parse-error {:i 0} "not implemented"))
+(defn serialize-list [_l] (parse-error {:i 0} "not implemented"))
+(defn serialize-dict [_d] (parse-error {:i 0} "not implemented"))
+(defn serialize-item [_i] (parse-error {:i 0} "not implemented"))
 
 ;; Utilities
 (defn combine-field-lines [lines] (str/join ", " lines))
+
+(defn ascii-bytes [s] (.getBytes ^String s StandardCharsets/US_ASCII))
 (defn ordered? [x] (or (vector? x) (sequential? x)))

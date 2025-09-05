@@ -1,5 +1,5 @@
 (ns ol.sfv
-  (:refer-clojure :exclude [list integer?])
+  (:refer-clojure :exclude [list integer? decimal? string? bytes bytes?])
   (:require [ol.sfv.impl :as impl]))
 
 ;; Bare value constructors and predicates

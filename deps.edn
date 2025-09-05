@@ -1,17 +1,15 @@
-{:paths   ["src"]
- :deps    {}
- :aliases {:kaocha {
-                    :extra-paths ["test"]
+{:paths ["src"]
+ :deps {}
+ :aliases {:kaocha {:extra-paths ["test"]
                     :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
-org.clojure/clojurescript   {:mvn/version "1.11.132"}
-                                 lambdaisland/kaocha-cljs    {:mvn/version "1.5.154"}
-                                 }
-                    :main-opts  ["-m" "kaocha.runner"]}
-           :build  {:deps       {io.github.clojure/tools.build {:git/tag "v0.10.10"
-                                                                :git/sha "deedd62"}
-                                 slipset/deps-deploy           {:mvn/version "0.2.2"}}
-                    :ns-default build}
-           :neil   {:project {:name        com.outskirtslabs/rfc9651-sfv
-                              :license     {:id "MIT"}
-                              :description ""
-                              :version     "0.1.0"}}}}
+                                 org.clojure/clojurescript {:mvn/version "1.11.132"}
+                                 lambdaisland/kaocha-cljs {:mvn/version "1.5.154"}}
+                    :main-opts ["-m" "kaocha.runner"]}
+           :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.10"
+                                                         :git/sha "deedd62"}
+                          slipset/deps-deploy {:mvn/version "0.2.2"}}
+                   :ns-default build}
+           :neil {:project {:name com.outskirtslabs/rfc9651-sfv
+                            :license {:id "MIT"}
+                            :description ""
+                            :version "0.1.0"}}}}
