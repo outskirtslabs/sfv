@@ -37,6 +37,13 @@
             pkgs.git
           ];
           env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath libraries;
+          shellHook = ''
+            mkdir -p extra/
+            pushd extra/
+            test -f rfc9651.txt || wget -q https://www.rfc-editor.org/rfc/rfc9651.txt
+            test -d java-structured-fields || git clone --depth=1 https://github.com/reschke/structured-fields/ java-structured-fields
+            popd
+        '';
         };
 
       flakelight.builtinFormatters = false;
