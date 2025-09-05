@@ -1,0 +1,10 @@
+{
+  "image": "ghcr.io/ramblurr/nix-agent-dev:main",
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+	"remoteUser": "devbox",
+	"containerEnv": {
+		"HM_FLAKE_URI": "github:Ramblurr/nix-agent-dev",
+    "NIX_CONFIG": "experimental-features = nix-command flakes"
+	},
+	"postCreateCommand": "nix --extra-experimental-features 'nix-command flakes' run github:nix-community/home-manager -- switch --impure -b backup --flake github:Ramblurr/nix-agent-dev#devbox"
+}
