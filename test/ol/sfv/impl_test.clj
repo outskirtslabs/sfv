@@ -29,6 +29,23 @@
     (is (not (impl/tchar? \space)))
     (is (not (impl/tchar? \"))))
 
+  (testing "lc-hexdig?"
+    (is (impl/lc-hexdig? \0))
+    (is (impl/lc-hexdig? \9))
+    (is (impl/lc-hexdig? \a))
+    (is (impl/lc-hexdig? \f))
+    (is (not (impl/lc-hexdig? \A)))
+    (is (not (impl/lc-hexdig? \g)))
+    (is (not (impl/lc-hexdig? \space))))
+
+  (testing "hex-digit-value"
+    (is (= 0 (impl/hex-digit-value \0)))
+    (is (= 9 (impl/hex-digit-value \9)))
+    (is (= 10 (impl/hex-digit-value \a)))
+    (is (= 15 (impl/hex-digit-value \f)))
+    (is (thrown? IllegalArgumentException (impl/hex-digit-value \g)))
+    (is (thrown? IllegalArgumentException (impl/hex-digit-value \A))))
+
   (testing "token-char?"
     (is (impl/token-char? \a))
     (is (impl/token-char? \:))

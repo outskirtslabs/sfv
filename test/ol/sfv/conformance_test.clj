@@ -1,6 +1,8 @@
 (ns ol.sfv.conformance-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.pprint :as pp]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.walk :as walk]
             [charred.api :as json]
             [ol.sfv.impl :as impl]))
@@ -13,14 +15,12 @@
       (json/read-json reader :key-fn keyword))))
 
 (defn base32->bytes
-  "Decode Base32 to bytes - placeholder implementation with known mappings"
+  "Decode Base32 to bytes using Apache Commons Codec"
   [base32-str]
-  ;; Hardcoded mappings from base32 strings to the actual bytes they represent
-  (let [test-data {"YODGE3DFOTB2M4TUMU======"
-                   (byte-array [-61 -122 98 108 101 116 -61 -90 114 116 101])
-                   "OBZGK5DFNZSCA5DINFZSA2LTEBRGS3TBOJ4SAY3PNZ2GK3TUFY======"
-                   (byte-array [112 114 101 116 101 110 100 32 116 104 105 115 32 105 115 32 98 105 110 97 114 121 32 99 111 110 116 101 110 116 46])}]
-    (get test-data base32-str (.getBytes base32-str))))
+  (if (str/blank? base32-str)
+    (byte-array 0)
+    (let [codec (org.apache.commons.codec.binary.Base32.)]
+      (.decode codec ^String base32-str))))
 
 (defn expected-value->clojure
   "Convert the expected value format from the test suite to our Clojure representation"
@@ -35,7 +35,7 @@
     {:type :bytes :value (base32->bytes (:value value))}
 
     ;; Handle display strings with __type metadata
-    (and (map? value) (= (:__type value) "display-string"))
+    (and (map? value) (= (:__type value) "displaystring"))
     {:type :dstring :value (:value value)}
 
     ;; Handle dates with __type metadata
@@ -107,21 +107,12 @@
 (defn norm [data]
   (walk/postwalk #(if (bytes? %) (seq %) %) data))
 
-(defn has-bytes? [data]
-  "Check if data structure contains any byte arrays"
-  (boolean
-   (walk/postwalk (fn [x] (if (bytes? x) (reduced true) x)) data)))
-
-(defn safe-equals [expected actual]
-  "Compare two data structures, normalizing bytes only when present"
-  (if (or (has-bytes? expected) (has-bytes? actual))
-    (= (norm expected) (norm actual))
-    (= expected actual)))
-
 (defn run-parse-test
   "Run a single parsing test case"
-  [{:keys [name raw header_type expected must_fail]}]
+  [{:keys [name raw header_type expected must_fail] :as t}]
   (testing (str "Parse test: " name)
+    (println "conformance test definition:")
+    (pp/pprint t)
     (let [input (if (= 1 (count raw))
                   (first raw)
                   (impl/combine-field-lines raw))] ; Combine multiple lines per RFC

@@ -144,7 +144,7 @@
 (defn hex-digit-value [ch]
   (cond
     (<= (int \0) (int ch) (int \9)) (- (int ch) (int \0))
-    (<= (int \a) (int ch) (int \f)) (- (int ch) (int \a) -10)
+    (<= (int \a) (int ch) (int \f)) (+ (- (int ch) (int \a)) 10)
     :else (throw (IllegalArgumentException. (str "Invalid hex digit: " ch)))))
 
 (defn parse-error [ctx reason & {:keys [found expected]}]
@@ -235,7 +235,7 @@
 
 ;; The remaining parsers (parse-string, parse-token, parse-byte-sequence,
 ;; parse-boolean, parse-date, parse-display-string, parse-parameters,
-;; item/inner-list/list/dictionary) will be implemented next, following
+;; item/inner-list/list/dictionary) will be implemented  following
 ;; the exact step-by-step algorithms in RFC 9651 (Section 4.2 and 4.1).
 
 ;; Stub other parsers for now (kept until implemented):
@@ -357,60 +357,86 @@
         (parse-error ctx'' "Date must be an integer, not decimal"))
         ;; 5. Return output_date.
       [{:type :date :value (:value output-date)} ctx''])))
+
+(defn decode-percent-sequence
+  "Decode a percent-encoded sequence (%XX) into a byte value.
+   Returns [byte new-ctx] or throws parse error."
+  [ctx]
+  (let [[c1 ctx'] (consume-char ctx)]
+    (when-not (lc-hexdig? c1)
+      (parse-error ctx' "Invalid hex digit in percent sequence"
+                   :found c1 :expected "lowercase hex digit"))
+    (let [[c2 ctx''] (consume-char ctx')]
+      (when-not (lc-hexdig? c2)
+        (parse-error ctx'' "Invalid hex digit in percent sequence"
+                     :found c2 :expected "lowercase hex digit"))
+      (let [byte-val (+ (* (hex-digit-value c1) 16) (hex-digit-value c2))]
+        [byte-val ctx'']))))
+
+(defn utf8-decode-bytes
+  "Decode a byte array as UTF-8, returning [decoded-string nil] on success or [nil error-message] on failure."
+  [byte-array]
+  (try
+    (let [decoder (-> StandardCharsets/UTF_8
+                      .newDecoder
+                      (.onMalformedInput java.nio.charset.CodingErrorAction/REPORT)
+                      (.onUnmappableCharacter java.nio.charset.CodingErrorAction/REPORT))
+          byte-buffer (java.nio.ByteBuffer/wrap byte-array)]
+      [(-> decoder (.decode byte-buffer) .toString) nil])
+    (catch java.nio.charset.CharacterCodingException e
+      [nil (.getMessage e)])))
+
 (defn parse-display-string [ctx]
   ;; RFC 9651 §4.2.10: Parsing a Display String
-  ;; 1. If the first two characters are not "%" followed by DQUOTE, fail parsing.
-  (let [ch1 (peek-char ctx)]
-    (when-not (= ch1 \%)
-      (parse-error ctx "Expected '%' for display string" :found ch1 :expected "%"))
-    (let [[_ ctx'] (consume-char ctx)
-          ch2 (peek-char ctx')]
-      (when-not (= ch2 \")
-        (parse-error ctx' "Expected '\"' after '%' for display string" :found ch2 :expected "\""))
-      ;; 2. Discard the first two characters.
-      (let [[_ ctx''] (consume-char ctx')]
-        ;; 3. Let byte_array be an empty byte array.
-        (loop [ctx'' ctx'' byte-array []]
-          ;; 4. While input_string is not empty:
-          (if (eof? ctx'')
-            ;; 5. Reached the end without finding closing DQUOTE; fail parsing.
-            (parse-error ctx'' "Unterminated display string")
-            (let [[char ctx'''] (consume-char ctx'')]
+  ;; 1. If the first two characters of input_string are not "%" followed by DQUOTE, fail parsing.
+  (let [[c1 ctx'] (consume-char ctx)]
+    (when-not (= c1 \%)
+      (parse-error ctx' "Display String must start with %\""
+                   :found c1 :expected "%"))
+
+    (let [[c2 ctx''] (consume-char ctx')]
+      (when-not (= c2 \")
+        (parse-error ctx'' "Display String must start with %\""
+                     :found c2 :expected "\""))
+
+      ;; 2. Discard the first two characters of input_string.
+      ;; 3. Let byte_array be an empty byte array.
+      (let [byte-array (java.io.ByteArrayOutputStream.)]
+
+        ;; 4. While input_string is not empty:
+        (loop [ctx-current ctx'']
+          (if (eof? ctx-current)
+            ;; 5. Reached the end of input_string without finding a closing DQUOTE; fail parsing.
+            (parse-error ctx-current "Display String missing closing quote")
+
+            (let [[char ctx-next] (consume-char ctx-current)]
               (cond
-                ;; 4.2. If char is in range %x00-1f or %x7f-ff, fail parsing.
-                (or (<= 0 (int char) 0x1F) (<= 0x7F (int char) 0xFF))
-                (parse-error ctx''' "Invalid character in display string" :found char :expected "VCHAR or SP")
-
-                ;; 4.3. If char is "%":
-                (= char \%)
-                (if (< (+ (:i ctx''') 2) (:n ctx'''))
-                  (let [hex1 (.charAt ^String (:s ctx''') (:i ctx'''))
-                        hex2 (.charAt ^String (:s ctx''') (+ (:i ctx''') 1))]
-                    ;; 4.3.2. If octet_hex contains characters outside 0-9 or a-f, fail parsing.
-                    (when-not (and (lc-hexdig? hex1) (lc-hexdig? hex2))
-                      (parse-error ctx''' "Invalid hex digits in display string" :found (str hex1 hex2) :expected "0-9 or a-f"))
-                    ;; 4.3.3. Let octet be the result of hex decoding.
-                    (let [octet (+ (* 16 (hex-digit-value hex1)) (hex-digit-value hex2))
-                          ctx'''' (update ctx''' :i + 2)]
-                      ;; 4.3.4. Append octet to byte_array.
-                      (recur ctx'''' (conj byte-array octet))))
-                  ;; 4.3.1. Not enough characters, fail parsing.
-                  (parse-error ctx''' "Incomplete hex escape in display string"))
-
-;; 4.4. If char is DQUOTE:
+                ;; If char is DQUOTE: decode byte_array as UTF-8 and return
                 (= char \")
-                (if (empty? byte-array)
-                  [{:type :dstring :value ""} ctx''']
-                  ;; 4.4.1. Let unicode_sequence be the result of decoding byte_array as UTF-8.
-                  (let [unicode-sequence (apply str (map #(clojure.core/char %) byte-array))]
-                    ;; 4.4.2. Return unicode_sequence.
-                    [{:type :dstring :value unicode-sequence} ctx''']))
+                (let [bytes (.toByteArray byte-array)
+                      [unicode-str error-msg] (utf8-decode-bytes bytes)]
+                  ;; RFC step 4.4.1: "Fail parsing if decoding fails"
+                  (if unicode-str
+                    [{:type :dstring :value unicode-str} ctx-next]
+                    (parse-error ctx-next (str "Invalid UTF-8 sequence in display string: " error-msg))))
 
-                ;; 4.5. Otherwise, if char is not "%" or DQUOTE:
+                ;; If char is "%": decode percent sequence
+                (= char \%)
+                (let [[byte-val ctx-after-percent] (decode-percent-sequence ctx-next)]
+                  (.write byte-array (unchecked-byte byte-val))
+                  (recur ctx-after-percent))
+
+                ;; If char is in the range %x00-1f or %x7f-ff (i.e., it is not in VCHAR or SP), fail parsing.
+                (or (< (int char) 0x20) (>= (int char) 0x7f))
+                (parse-error ctx-next "Invalid character in Display String"
+                             :found char :expected "VCHAR or SP")
+
+                ;; Otherwise, append char as ASCII byte to byte_array
                 :else
-                ;; 4.5.1. Let byte be the result of applying ASCII encoding to char.
-                ;; 4.5.2. Append byte to byte_array.
-                (recur ctx''' (conj byte-array (int char)))))))))))
+                (do
+                  (.write byte-array (int char))
+                  (recur ctx-next))))))))))
+
 (defn parse-bare-item [ctx]
   ;; RFC 9651 §4.2.3.1: Parsing a Bare Item
   (let [ch (peek-char ctx)]
