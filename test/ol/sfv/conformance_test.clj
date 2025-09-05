@@ -128,56 +128,66 @@
                    "\nExpected: " (pr-str expected-clojure)
                    "\nActual: " (pr-str result))))))))
 
-(defn run-conformance-tests
-  "Run all test cases from a JSON file"
+(defmacro run-conformance-tests
+  "Generate test cases from a JSON file at compile time"
   [filename]
-  (let [test-cases (load-test-cases filename)]
-    (doseq [test-case test-cases]
-      (run-parse-test test-case))))
+  (let [test-cases (with-open [reader (io/reader (str "test/fixtures/" filename))]
+                     (json/read-json reader :key-fn keyword))
+        safe-filename (-> filename (str/replace #"\.json$" "") (str/replace #"-" "_"))]
+    `(do
+       ~@(for [test-case test-cases
+               :let [safe-name (-> (:name test-case)
+                                   (str/replace #"[^a-zA-Z0-9_]" "_")
+                                   (str/replace #"_{2,}" "_")
+                                   (str/replace #"^_|_$" ""))]]
+           `(deftest ~(symbol (str safe-filename "_" safe-name))
+              (run-parse-test ~test-case))))))
 
-;; Define test functions for each test file
+(def test-data-files ["binary.json"
+                      "boolean.json"
+                      "date.json"
+                      "dictionary.json"
+                      "display-string.json"
+                      "examples.json"
+                      "item.json"
+                      "key-generated.json"
+                      "large-generated.json"
+                      "list.json"
+                      "listlist.json"
+                      "number-generated.json"
+                      "number.json"
+                      "param-dict.json"
+                      "param-list.json"
+                      "param-listlist.json"
+                      "string-generated.json"
+                      "string.json"
+                      "token-generated.json"
+                      "token.json"])
 
-(deftest conformance-examples-test
-  (run-conformance-tests "examples.json"))
+(defmacro generate-all-conformance-tests []
+  `(do
+     ~@(for [filename ["binary.json"
+                       "boolean.json"
+                       "date.json"
+                       "dictionary.json"
+                       "display-string.json"
+                       "examples.json"
+                       "item.json"
+                       "key-generated.json"
+                       "large-generated.json"
+                       "list.json"
+                       "listlist.json"
+                       "number-generated.json"
+                       "number.json"
+                       "param-dict.json"
+                       "param-list.json"
+                       "param-listlist.json"
+                       "string-generated.json"
+                       "string.json"
+                       "token-generated.json"
+                       "token.json"]]
+         `(run-conformance-tests ~filename))))
 
-(deftest conformance-item-test
-  (run-conformance-tests "item.json"))
+(generate-all-conformance-tests)
 
-(deftest conformance-list-test
-  (run-conformance-tests "list.json"))
 
-(deftest conformance-dictionary-test
-  (run-conformance-tests "dictionary.json"))
-
-(deftest conformance-boolean-test
-  (run-conformance-tests "boolean.json"))
-
-(deftest conformance-number-test
-  (run-conformance-tests "number.json"))
-
-(deftest conformance-string-test
-  (run-conformance-tests "string.json"))
-
-(deftest conformance-token-test
-  (run-conformance-tests "token.json"))
-
-(deftest conformance-binary-test
-  (run-conformance-tests "binary.json"))
-
-(deftest conformance-date-test
-  (run-conformance-tests "date.json"))
-
-(deftest conformance-display-string-test
-  (run-conformance-tests "display-string.json"))
-
-(deftest conformance-param-dict-test
-  (run-conformance-tests "param-dict.json"))
-
-(deftest conformance-param-list-test
-  (run-conformance-tests "param-list.json"))
-
-(deftest conformance-param-listlist-test
-  (run-conformance-tests "param-listlist.json"))
-
-(deftest conformance-listlist-test
-  (run-conformance-tests "listlist.json"))
