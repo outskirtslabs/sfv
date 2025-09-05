@@ -547,7 +547,7 @@
       ;; 2. Otherwise, return parse-item
       (parse-item ctx))))
 (defn parse-list-members [ctx]
-  ;; Parse comma-separated list members
+  ;; Parse comma-separated list members following RFC 9651 §4.2.1
   (loop [ctx ctx members []]
     (let [ctx' (skip-ows ctx)]
       (if (eof? ctx')
@@ -559,9 +559,14 @@
             [members' ctx''']
             (let [ch (peek-char ctx''')]
               (if (= ch \,)
-                (let [[_ ctx''''] (consume-char ctx''')]
-                  (recur ctx'''' members'))
+                (let [[_ ctx''''] (consume-char ctx''')
+                      ctx''''' (skip-ows ctx'''')]
+                  ;; check for trailing comma after consuming comma and OWS
+                  (if (eof? ctx''''')
+                    (parse-error ctx''''' "Found trailing COMMA in List")
+                    (recur ctx''''' members')))
                 [members' ctx''']))))))))
+
 (defn parse-list [s-or-bytes]
   ;; RFC 9651 §4.2.1: Parsing a List
   (let [ctx (init-ctx s-or-bytes)
