@@ -591,26 +591,42 @@
               ;; Key=Value
               (let [[_ ctx] (consume-char ctx)
                     [member ctx] (parse-item-or-inner-list ctx)
-                    entries' (conj (filterv #(not= (first %) key) entries) [key member])
+                    ;; when duplicates, last write wins, but maintain position of the first
+                    existing-idx (first (keep-indexed #(when (= (first %2) key) %1) entries))
+                    entries' (if existing-idx
+                               (assoc entries existing-idx [key member])
+                               (conj entries [key member]))
                     ctx (skip-ows ctx)]
                 (if (eof? ctx)
                   {:type :dict :entries entries'}
                   (let [ch2 (peek-char ctx)]
                     (if (= ch2 \,)
-                      (let [[_ ctx] (consume-char ctx)]
-                        (recur ctx entries'))
+                      (let [[_ ctx] (consume-char ctx)
+                            ctx (skip-ows ctx)]
+                        ;; Check for trailing comma after consuming comma and OWS
+                        (if (eof? ctx)
+                          (parse-error ctx "Found trailing COMMA in Dictionary")
+                          (recur ctx entries')))
                       (parse-error ctx "Expected comma or end of input" :found ch2 :expected ",")))))
-              ;; Key only - RFC says this is an Item with Boolean true and parameters
+              ;; Key only - an Item with Boolean true and parameters
               (let [[params ctx] (parse-parameters ctx)
                     boolean-item {:type :item :bare {:type :boolean :value true} :params params}
-                    entries' (conj (filterv #(not= (first %) key) entries) [key boolean-item])
+                    ;; when duplicates, last write wins, but maintain position of the first
+                    existing-idx (first (keep-indexed #(when (= (first %2) key) %1) entries))
+                    entries' (if existing-idx
+                               (assoc entries existing-idx [key boolean-item])
+                               (conj entries [key boolean-item]))
                     ctx (skip-ows ctx)]
                 (if (eof? ctx)
                   {:type :dict :entries entries'}
                   (let [ch2 (peek-char ctx)]
                     (if (= ch2 \,)
-                      (let [[_ ctx] (consume-char ctx)]
-                        (recur ctx entries'))
+                      (let [[_ ctx] (consume-char ctx)
+                            ctx (skip-ows ctx)]
+                        ;; Check for trailing comma after consuming comma and OWS
+                        (if (eof? ctx)
+                          (parse-error ctx "Found trailing COMMA in Dictionary")
+                          (recur ctx entries')))
                       (parse-error ctx "Expected comma or end of input" :found ch2 :expected ","))))))))))))
 (defn parse-dictionary [s-or-bytes]
   (parse-dict s-or-bytes))
