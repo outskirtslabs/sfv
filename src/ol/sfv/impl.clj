@@ -563,10 +563,10 @@
                       (let [[_ ctx] (consume-char ctx)]
                         (recur ctx entries'))
                       (parse-error ctx "Expected comma or end of input" :found ch2 :expected ",")))))
-              ;; Key only (boolean flag)
+              ;; Key only - RFC says this is an Item with Boolean true and parameters
               (let [[params ctx] (parse-parameters ctx)
-                    flag-item {:type :flag :params params}
-                    entries' (conj (filterv #(not= (first %) key) entries) [key flag-item])
+                    boolean-item {:type :item :bare {:type :boolean :value true} :params params}
+                    entries' (conj (filterv #(not= (first %) key) entries) [key boolean-item])
                     ctx (skip-ows ctx)]
                 (if (eof? ctx)
                   {:type :dict :entries entries'}
