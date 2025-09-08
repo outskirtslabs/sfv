@@ -943,5 +943,3 @@
     (throw (ex-info "Unknown structured field type" {:type (:type x)}))))
 
 (defn combine-field-lines [lines] (str/join ", " lines))
-(defn ascii-bytes [s] (.getBytes ^String s StandardCharsets/US_ASCII))
-(defn ordered? [x] (or (vector? x) (sequential? x)))

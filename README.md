@@ -16,7 +16,7 @@ For practical use, it should be wrapped in higher-level functions or libraries t
 Key features:
 
 * Complete RFC 9651 implementation with AST-level parsing and serialization with zero deps
-* Extensively tested (`2843 tests, 3156 assertions`)
+* Extensively tested (`2853 tests, 3220 assertions`)
 * Precise round-trip fidelity - parse and serialize back to identical strings
 * Validation and error reporting
 * JVM/Graal target
@@ -244,7 +244,6 @@ Copyright © 2025 Casey Link <casey@outskirtslabs.com>
 
 Distributed under the [MIT License](./LICENSE)
 
-[sec]: https://github.com/outskirtslabs/sfv/security/advisories
-
+[sec]: https://github.com/outskirtslabs/sfv/security
 [rfc9651]: https://datatracker.ietf.org/doc/html/rfc9651
 [rfc9421]: https://datatracker.ietf.org/doc/html/rfc9421
