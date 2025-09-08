@@ -30,6 +30,7 @@
           packages = [
             clojure
             jdk
+            pkgs.dumbpipe
             pkgs.clojure-lsp
             pkgs.clj-kondo
             pkgs.cljfmt
