@@ -3,8 +3,8 @@
 	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 	"remoteUser": "vscode",
 	"containerEnv": {
-		"HM_FLAKE_URI": "github:Ramblurr/nix-agent-dev",
-    "NIX_CONFIG": "experimental-features = nix-command flakes"
+    "WORKSPACE_FOLDER": "${containerWorkspaceFolder}"
 	},
-	"postCreateCommand": "nix --extra-experimental-features 'nix-command flakes' run github:nix-community/home-manager -- switch --impure -b backup --flake github:Ramblurr/nix-agent-dev#vscode"
+  "onCreateCommand": "dev-env-start",
+	"postCreateCommand": "dev-env-poststart"
 }
