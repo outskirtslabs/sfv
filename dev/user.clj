@@ -6,14 +6,14 @@
 {:type :item :bare {:type :integer :value 42} :params []}
 
 ;; They are round trippable
-(sfv/serialize-item {:type :item :bare {:type :integer :value 42}})
+(sfv/serialize {:type :item :bare {:type :integer :value 42}})
 ;; => "42"
 
 ;; Display String
 (sfv/parse-item "%\"Gr%c3%bc%c3%9fe\"")
 {:type :item :bare {:type :dstring :value "Grüße"} :params []}
 
-(sfv/serialize-item {:type :item :bare {:type :dstring :value "السلام عليكم"} :params []})
+(sfv/serialize {:type :item :bare {:type :dstring :value "السلام عليكم"} :params []})
 "%\"%d8%a7%d9%84%d8%b3%d9%84%d8%a7%d9%85 %d8%b9%d9%84%d9%8a%d9%83%d9%85\""
 
 ;; Dates

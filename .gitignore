@@ -14,3 +14,4 @@ target/
 .clojure-mcp
 extra/
 .direnv
+example-project

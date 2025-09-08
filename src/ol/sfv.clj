@@ -97,7 +97,6 @@
   "Serialize a Structured Field AST `x` to its string representation.
 
   Takes any parsed AST (Item, List, or Dictionary) and returns the RFC 9651 string.
-  See [[serialize-item]], [[serialize-list]], and [[serialize-dict]] for type-specific variants.
 
   ```clojure
   (serialize {:type :item :bare {:type :integer :value 42} :params []})

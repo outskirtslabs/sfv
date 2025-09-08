@@ -30,7 +30,7 @@
       "item"       "42")))
 
 (deftest serialization-functions-test
-  (testing "serialize-item"
+  (testing "serialize item"
     (are [item expected] (= expected (sfv/serialize item))
       (sfv/item (sfv/string "hello")) "\"hello\""
       (sfv/item (sfv/integer 42))     "42"
@@ -38,7 +38,7 @@
       (sfv/item (sfv/bool true))      "?1"
       (sfv/item (sfv/token "foo"))    "foo"))
 
-  (testing "serialize-list and serialize-dict"
+  (testing "serialize list and serialize dict"
     (is (= "\"hello\", \"world\""
            (sfv/serialize (sfv/sf-list [(sfv/item (sfv/string "hello"))
                                         (sfv/item (sfv/string "world"))]))))
