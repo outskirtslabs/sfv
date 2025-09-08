@@ -8,10 +8,10 @@
 
 Structured Field Values (SFV) as defined in [RFC 9651][rfc9651] provide a standardized way to encode complex data structures in HTTP headers.
 
-`ol.sfv` library implements the specification, providing complete parsing and serialization capabilities.
+`ol.sfv` library implements the specification, providing parsing and serialization capabilities.
 
 This is a low-level library that emits and consumes the RFC 9651 AST, which unfortunately does not map cleanly to Clojure datastructures. 
-For practical use, it should be wrapped in higher-level functions or libraries that implement specific HTTP headers like `Permissions-Policy`, `Signature-Input`, or `Signature` headers.
+For practical use, it should be wrapped in higher-level functions or libraries that implement specific HTTP headers like `Permissions-Policy`, `Signature-Input`, or `Signature` headers (any any future HTTP headers).
 
 Key features:
 
