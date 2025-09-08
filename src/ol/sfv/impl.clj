@@ -404,6 +404,22 @@
     (catch java.nio.charset.CharacterCodingException e
       [nil (.getMessage e)])))
 
+(defn first-invalid-utf8-position
+  "Find the position of the first invalid UTF-8 byte sequence.
+   Returns the position from byte-positions list, or nil if not found."
+  [bytes byte-positions]
+  (letfn [(test-utf8-from [i]
+            (when (< i (alength bytes))
+              (let [remaining-bytes (java.util.Arrays/copyOfRange bytes i (alength bytes))]
+                (try
+                  (String. remaining-bytes StandardCharsets/UTF_8)
+                  (test-utf8-from (inc i))
+                  (catch Exception _
+                    ;; Found the position where UTF-8 decoding fails
+                    (when (< i (.size byte-positions))
+                      (.get byte-positions i)))))))]
+    (test-utf8-from 0)))
+
 (defn parse-display-string [ctx]
   ;; RFC 9651 §4.2.10: Parsing a Display String
   ;; 1. If the first two characters of input_string are not "%" followed by DQUOTE, fail parsing.
@@ -419,7 +435,9 @@
 
       ;; 2. Discard the first two characters of input_string.
       ;; 3. Let byte_array be an empty byte array.
-      (let [byte-array (java.io.ByteArrayOutputStream.)]
+      (let [byte-array (java.io.ByteArrayOutputStream.)
+            ;; Track position of percent-decoded bytes for UTF-8 error reporting
+            percent-positions (java.util.ArrayList.)]
 
         ;; 4. While input_string is not empty:
         (loop [ctx-current ctx'']
@@ -436,12 +454,20 @@
                   ;; RFC step 4.4.1: "Fail parsing if decoding fails"
                   (if unicode-str
                     [{:type :dstring :value unicode-str} ctx-next]
-                    (parse-error ctx-next (str "Invalid UTF-8 sequence in display string: " error-msg))))
+                    ;; Find the position of the first percent-decoded byte
+                    (let [error-pos (if (> (.size percent-positions) 0)
+                                      (.get percent-positions 0)  ; Use first percent sequence position
+                                      (:i ctx-current))]
+                      (parse-error (assoc ctx-current :i error-pos) (str "Invalid UTF-8 sequence")))))
 
                 ;; If char is "%": decode percent sequence
                 (= char \%)
-                (let [[byte-val ctx-after-percent] (decode-percent-sequence ctx-next)]
+                (let [percent-start-pos (:i ctx-current)
+                      [byte-val ctx-after-percent] (decode-percent-sequence ctx-next)
+                      ;; Report error at the middle of the percent sequence
+                      percent-mid-pos (dec (dec (:i ctx-after-percent)))]
                   (.write byte-array (unchecked-byte byte-val))
+                  (.add percent-positions percent-mid-pos)
                   (recur ctx-after-percent))
 
                 ;; If char is in the range %x00-1f or %x7f-ff (i.e., it is not in VCHAR or SP), fail parsing.
@@ -453,6 +479,7 @@
                 :else
                 (do
                   (.write byte-array (int char))
+                  ;; Don't track positions for regular ASCII chars
                   (recur ctx-next))))))))))
 
 (defn parse-bare-item [ctx]
