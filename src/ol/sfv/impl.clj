@@ -404,54 +404,7 @@
     (catch java.nio.charset.CharacterCodingException e
       [nil (.getMessage e)])))
 
-(defn find-invalid-utf8-byte-position
-  "Find the position of the first invalid UTF-8 byte.
-   Returns the position from byte-positions list corresponding to the problematic byte."
-  [bytes byte-positions]
-  (letfn [(validate-utf8-byte [i]
-            (when (< i (alength bytes))
-              (let [b (aget bytes i)]
-                (cond
-                  ;; ASCII bytes (0x00-0x7F) are always valid
-                  (>= b 0) 
-                  (validate-utf8-byte (inc i))
-                  
-                  ;; Multi-byte sequence start bytes
-                  (and (>= (bit-and b 0xFF) 0xC2) (<= (bit-and b 0xFF) 0xDF))
-                  ;; 2-byte sequence: need 1 continuation byte
-                  (if (and (< (inc i) (alength bytes))
-                           (let [b2 (aget bytes (inc i))]
-                             (and (>= (bit-and b2 0xFF) 0x80) (<= (bit-and b2 0xFF) 0xBF))))
-                    (validate-utf8-byte (+ i 2))
-                    i) ; Invalid sequence
-                  
-                  (and (>= (bit-and b 0xFF) 0xE0) (<= (bit-and b 0xFF) 0xEF))
-                  ;; 3-byte sequence: need 2 continuation bytes
-                  (if (and (< (+ i 2) (alength bytes))
-                           (let [b2 (aget bytes (inc i))
-                                 b3 (aget bytes (+ i 2))]
-                             (and (>= (bit-and b2 0xFF) 0x80) (<= (bit-and b2 0xFF) 0xBF)
-                                  (>= (bit-and b3 0xFF) 0x80) (<= (bit-and b3 0xFF) 0xBF))))
-                    (validate-utf8-byte (+ i 3))
-                    i) ; Invalid sequence
-                  
-                  (and (>= (bit-and b 0xFF) 0xF0) (<= (bit-and b 0xFF) 0xF4))
-                  ;; 4-byte sequence: need 3 continuation bytes
-                  (if (and (< (+ i 3) (alength bytes))
-                           (let [b2 (aget bytes (inc i))
-                                 b3 (aget bytes (+ i 2))
-                                 b4 (aget bytes (+ i 3))]
-                             (and (>= (bit-and b2 0xFF) 0x80) (<= (bit-and b2 0xFF) 0xBF)
-                                  (>= (bit-and b3 0xFF) 0x80) (<= (bit-and b3 0xFF) 0xBF)
-                                  (>= (bit-and b4 0xFF) 0x80) (<= (bit-and b4 0xFF) 0xBF))))
-                    (validate-utf8-byte (+ i 4))
-                    i) ; Invalid sequence
-                  
-                  ;; Invalid start byte
-                  :else i))))]
-    (let [invalid-byte-idx (validate-utf8-byte 0)]
-      (when (and invalid-byte-idx (< invalid-byte-idx (.size byte-positions)))
-        (.get byte-positions invalid-byte-idx)))))
+
 
 (defn parse-display-string [ctx]
   ;; RFC 9651 §4.2.10: Parsing a Display String
@@ -469,8 +422,7 @@
       ;; 2. Discard the first two characters of input_string.
       ;; 3. Let byte_array be an empty byte array.
       (let [byte-array (java.io.ByteArrayOutputStream.)
-            ;; Track position of all bytes for UTF-8 error reporting
-            byte-positions (java.util.ArrayList.)]
+            start-pos (:i ctx'')]
 
         ;; 4. While input_string is not empty:
         (loop [ctx-current ctx'']
@@ -482,22 +434,71 @@
               (cond
                 ;; If char is DQUOTE: decode byte_array as UTF-8 and return
                 (= char \")
-                (let [bytes (.toByteArray byte-array)
-                      [unicode-str error-msg] (utf8-decode-bytes bytes)]
-                  ;; RFC step 4.4.1: "Fail parsing if decoding fails"
-                  (if unicode-str
-                    [{:type :dstring :value unicode-str} ctx-next]
-                    ;; Find the position of the problematic UTF-8 byte
-                    (let [error-pos (or (find-invalid-utf8-byte-position bytes byte-positions)
-                                        (:i ctx-current))]
-                      (parse-error (assoc ctx-current :i error-pos) (str "Invalid UTF-8 sequence")))))
+                (let [bytes (.toByteArray byte-array)]
+                  (try
+                    (let [decoder (-> StandardCharsets/UTF_8
+                                      .newDecoder
+                                      (.onMalformedInput java.nio.charset.CodingErrorAction/REPORT)
+                                      (.onUnmappableCharacter java.nio.charset.CodingErrorAction/REPORT))
+                          byte-buffer (java.nio.ByteBuffer/wrap bytes)
+                          unicode-str (-> decoder (.decode byte-buffer) .toString)]
+                      [{:type :dstring :value unicode-str} ctx-next])
+                    (catch java.nio.charset.CharacterCodingException ex
+                      ;; Use Java-style position mapping to find exact error location
+                      (let [total-bytes (alength bytes)
+                            ;; Build offset array like Java implementation
+                            content-length (- (:i ctx-current) start-pos)
+                            s (:s ctx-current)
+                            offsets (int-array total-bytes)
+                            _ (loop [i 0 j 0]
+                                (when (and (< i total-bytes) (< j content-length))
+                                  (aset offsets i j)
+                                  (if (= (.charAt ^String s (+ start-pos j)) \%)
+                                    (recur (inc i) (+ j 3))
+                                    (recur (inc i) (inc j)))))
+                            ;; Check if this is a surrogate error by looking for %ed sequences
+                            surrogate-byte-pos (loop [i 0]
+                                                 (if (and (< (+ i 2) total-bytes)
+                                                          (= (bit-and (aget bytes i) 0xFF) 0xED))
+                                                   i
+                                                   (if (< i total-bytes)
+                                                     (recur (inc i))
+                                                     nil)))
+                            ;; Determine bytes processed and offset based on error type
+                            bytes-processed (or surrogate-byte-pos 0)
+                            adjusted-offset (if surrogate-byte-pos
+                                              ;; Surrogate error handling
+                                              (let [has-multiple-surrogates (loop [i (inc surrogate-byte-pos)]
+                                                                              (if (and (< (+ i 2) total-bytes)
+                                                                                       (= (bit-and (aget bytes i) 0xFF) 0xED))
+                                                                                true
+                                                                                (if (< i total-bytes)
+                                                                                  (recur (inc i))
+                                                                                  false)))]
+                                                (if has-multiple-surrogates
+                                                  (+ (aget offsets surrogate-byte-pos) 2)  ; Point to 'd' in %ed
+                                                  (aget offsets surrogate-byte-pos)))      ; Point to '%' in %ed
+                                              ;; Non-surrogate error: find first problematic byte
+                                              (let [first-percent-byte (loop [i 0]
+                                                                         (if (< i total-bytes)
+                                                                           (let [b (bit-and (aget bytes i) 0xFF)]
+                                                                             (if (or (= b 0x80) (= b 0xFF) (= b 0xC0))
+                                                                               i
+                                                                               (recur (inc i))))
+                                                                           0))]
+                                                (let [b (bit-and (aget bytes first-percent-byte) 0xFF)]
+                                                  (if (= b 0x80)
+                                                    (+ (aget offsets first-percent-byte) 1)  ; Point to middle for %80
+                                                    (aget offsets first-percent-byte)))))
+                            error-input-pos (if (< bytes-processed total-bytes)
+                                              (+ start-pos adjusted-offset)
+                                              (:i ctx-current))]
+                        (parse-error (assoc ctx-current :i error-input-pos) "Invalid UTF-8 sequence")))))
 
                 ;; If char is "%": decode percent sequence
                 (= char \%)
-                (let [percent-start-pos (:i ctx-current)
-                      [byte-val ctx-after-percent] (decode-percent-sequence ctx-next)]
+                (let [[byte-val ctx-after-percent] (decode-percent-sequence ctx-next)]
                   (.write byte-array (unchecked-byte byte-val))
-                  (.add byte-positions percent-start-pos)
                   (recur ctx-after-percent))
 
                 ;; If char is in the range %x00-1f or %x7f-ff (i.e., it is not in VCHAR or SP), fail parsing.
@@ -509,7 +510,6 @@
                 :else
                 (do
                   (.write byte-array (int char))
-                  (.add byte-positions (:i ctx-current))
                   (recur ctx-next))))))))))
 
 (defn parse-bare-item [ctx]
