@@ -371,7 +371,6 @@
         ;; Find the position of the decimal point
         (let [s (:s ctx')
               start-pos (:i ctx')
-              end-pos (:i ctx'')
               decimal-pos (.indexOf ^String s "." start-pos)]
           (parse-error (assoc ctx' :i decimal-pos) "Date must be an integer")))
         ;; 5. Return output_date.
@@ -391,19 +390,6 @@
                      :found c2 :expected "lowercase hex digit"))
       (let [byte-val (+ (* (hex-digit-value c1) 16) (hex-digit-value c2))]
         [byte-val ctx'']))))
-
-(defn utf8-decode-bytes
-  "Decode a byte array as UTF-8, returning [decoded-string nil] on success or [nil error-message] on failure."
-  [byte-array]
-  (try
-    (let [decoder (-> StandardCharsets/UTF_8
-                      .newDecoder
-                      (.onMalformedInput java.nio.charset.CodingErrorAction/REPORT)
-                      (.onUnmappableCharacter java.nio.charset.CodingErrorAction/REPORT))
-          byte-buffer (java.nio.ByteBuffer/wrap byte-array)]
-      [(-> decoder (.decode byte-buffer) .toString) nil])
-    (catch java.nio.charset.CharacterCodingException e
-      [nil (.getMessage e)])))
 
 (defn parse-display-string [ctx]
   ;; RFC 9651 §4.2.10: Parsing a Display String
@@ -442,7 +428,7 @@
                           byte-buffer (java.nio.ByteBuffer/wrap bytes)
                           unicode-str (-> decoder (.decode byte-buffer) .toString)]
                       [{:type :dstring :value unicode-str} ctx-next])
-                    (catch java.nio.charset.CharacterCodingException ex
+                    (catch java.nio.charset.CharacterCodingException _
                       ;; Use Java-style position mapping to find exact error location
                       (let [total-bytes (alength bytes)
                             ;; Build offset array like Java implementation
@@ -486,12 +472,12 @@
                                                                              (if (or (= b 0x80) (= b 0xFF) (= b 0xC0))
                                                                                i
                                                                                (recur (inc i))))
-                                                                           0))]
-                                                (let [b (bit-and (aget bytes first-percent-byte) 0xFF)]
-                                                  (if (= b 0x80)
-                                                    ;; Point to middle for %80
-                                                    (+ (aget offsets first-percent-byte) 1)
-                                                    (aget offsets first-percent-byte)))))
+                                                                           0))
+                                                    b                  (bit-and (aget bytes first-percent-byte) 0xFF)]
+                                                (if (= b 0x80)
+                                                  ;; Point to middle for %80
+                                                  (+ (aget offsets first-percent-byte) 1)
+                                                  (aget offsets first-percent-byte))))
                             error-input-pos (if (< bytes-processed total-bytes)
                                               (+ start-pos adjusted-offset)
                                               (:i ctx-current))]
@@ -704,15 +690,14 @@
                         (parse-error ctx "Found trailing COMMA in Dictionary")
                         (recur ctx entries')))
                     (parse-error ctx "Expected comma or end of input" :found ch2 :expected ",")))))))))))
-(defn parse-dictionary [s-or-bytes]
-  (parse-dict s-or-bytes))
+
 (defn parse [field-type s-or-bytes]
   ;; RFC 9651 §4.2: Parsing Structured Fields
   (if (nil? field-type)
     ;; When field-type is nil, validate the field line for invalid characters
     (let [s (if (string? s-or-bytes) s-or-bytes
                 (try (ascii-string s-or-bytes)
-                     (catch Exception e
+                     (catch Exception _
                        ;; If ascii-string fails, we still need to validate with position
                        (if (instance? (Class/forName "[B") s-or-bytes)
                          (String. ^bytes s-or-bytes StandardCharsets/UTF_8)
@@ -957,6 +942,5 @@
     (throw (ex-info "Unknown structured field type" {:type (:type x)}))))
 
 (defn combine-field-lines [lines] (str/join ", " lines))
-
 (defn ascii-bytes [s] (.getBytes ^String s StandardCharsets/US_ASCII))
 (defn ordered? [x] (or (vector? x) (sequential? x)))
