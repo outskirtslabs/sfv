@@ -97,6 +97,16 @@
     (String. ^bytes s StandardCharsets/US_ASCII)
     :else (throw (ex-info "ascii-string: expected string or bytes" {:input s}))))
 
+(defn validate-field-line [s]
+  "Validate field line characters and return position of first invalid character, or nil if valid"
+  (loop [i 0]
+    (if (>= i (.length ^String s))
+      nil
+      (let [ch (.charAt ^String s i)]
+        (if (or (< (int ch) 0x20) (>= (int ch) 0x7F))
+          i
+          (recur (inc i)))))))
+
 (defn init-ctx [s-or-bytes]
   (let [s2 (ascii-string s-or-bytes)]
     {:s s2 :i 0 :n (.length ^String s2)}))
@@ -184,9 +194,9 @@
     (when (>= i0 n) (parse-error ctx "empty integer/decimal"))
     (let [first-ch (.charAt ^String s i0)
           [sign i] (if (= first-ch \-) [-1 (inc i0)] [1 i0])]
-      (when (>= i n) (parse-error ctx "empty integer after sign"))
+      (when (>= i n) (parse-error (assoc ctx :i i) "empty integer after sign"))
       (let [first-ch2 (.charAt ^String s i)]
-        (when-not (digit? first-ch2) (parse-error ctx "Expected DIGIT" :found first-ch2 :expected "DIGIT"))
+        (when-not (digit? first-ch2) (parse-error (assoc ctx :i i) "Expected DIGIT" :found first-ch2 :expected "DIGIT"))
         (let [sb (StringBuilder.)]
           (loop [i i type :integer sb sb]
             (if (< i n)
@@ -195,27 +205,27 @@
                   (digit? ch)
                   (do (.append sb ch)
                       (let [len (.length sb)]
-                        (when (and (= type :integer) (> len 15)) (parse-error ctx "Integer too long"))
-                        (when (and (= type :decimal) (> len 16)) (parse-error ctx "Decimal too long"))
+                        (when (and (= type :integer) (> len 15)) (parse-error (assoc ctx :i i) "Integer too long"))
+                        (when (and (= type :decimal) (> len 16)) (parse-error (assoc ctx :i i) "Decimal too long"))
                         (recur (inc i) type sb)))
 
                   (and (= type :integer) (= ch \.))
-                  (do (when (> (.length sb) 12) (parse-error ctx "Integer part too long for decimal"))
+                  (do (when (> (.length sb) 12) (parse-error (assoc ctx :i i) "Integer part too long"))
                       (.append sb ch)
-                      (when (> (.length sb) 16) (parse-error ctx "Decimal too long"))
+                      (when (> (.length sb) 16) (parse-error (assoc ctx :i i) "Decimal too long"))
                       (recur (inc i) :decimal sb))
 
                   (and (= type :decimal) (= ch \.))
-                  (parse-error ctx "Multiple decimal points not allowed" :found ch :expected "DIGIT")
+                  (parse-error (assoc ctx :i i) "Multiple decimal points not allowed" :found ch :expected "DIGIT")
 
                   :else
                   (let [input-number (.toString sb) ctx' (assoc ctx :i i)]
                     (if (= type :integer)
                       (let [num (Long/parseLong input-number)] [{:type :integer :value (* sign num)} ctx'])
-                      (do (when (.endsWith input-number ".") (parse-error ctx "Decimal has trailing dot"))
+                      (do (when (.endsWith input-number ".") (parse-error (assoc ctx :i (dec i)) "Decimal has trailing dot"))
                           (let [dot-pos (.indexOf input-number ".")
                                 frac-len (if (neg? dot-pos) 0 (- (.length input-number) (inc dot-pos)))]
-                            (when (> frac-len 3) (parse-error ctx "Decimal fraction too long"))
+                            (when (> frac-len 3) (parse-error (assoc ctx :i (dec i)) "Decimal fraction too long"))
                             (let [bd (java.math.BigDecimal. input-number)
                                   bd (if (= sign -1) (.negate bd) bd)]
                               [{:type :decimal :value bd} ctx'])))))))
@@ -223,12 +233,12 @@
               (let [input-number (.toString sb) ctx' (assoc ctx :i i)]
                 (if (str/blank? input-number)
                   (parse-error ctx "No digits parsed for number")
-                  (do (when (.endsWith input-number ".") (parse-error ctx "Decimal has trailing dot"))
+                  (do (when (.endsWith input-number ".") (parse-error (assoc ctx :i (dec i)) "Decimal has trailing dot"))
                       (let [dot-pos (.indexOf input-number ".")]
                         (if (= dot-pos -1)
                           (let [num (Long/parseLong input-number)] [{:type :integer :value (* sign num)} ctx'])
                           (let [frac-len (- (.length input-number) (inc dot-pos))]
-                            (when (> frac-len 3) (parse-error ctx "Decimal fraction too long"))
+                            (when (> frac-len 3) (parse-error (assoc ctx :i (dec i)) "Decimal fraction too long"))
                             (let [bd (java.math.BigDecimal. input-number)
                                   bd (if (= sign -1) (.negate bd) bd)]
                               [{:type :decimal :value bd} ctx']))))))))))))))
@@ -258,7 +268,7 @@
                   (if (or (= next-char \") (= next-char \\))
                     (do (.append sb next-char)
                         (recur ctx'''))
-                    (parse-error ctx''' "Invalid escape sequence" :found next-char :expected "\" or \\"))))
+                    (parse-error ctx'' "Invalid escape sequence" :found next-char :expected "\" or \\"))))
 
               (= char \")
               [{:type :string :value (.toString sb)} ctx'']
@@ -305,14 +315,17 @@
           end-colon-pos (.indexOf ^String s ":" i)]
       ;; 3. If there is not a ":" character before the end of input_string, fail parsing.
       (when (= end-colon-pos -1)
-        (parse-error ctx' "Missing closing ':' for byte sequence"))
+        (parse-error (assoc ctx' :i (:n ctx')) "Missing closing ':'"))
       ;; 4. Let b64_content be the result of consuming content up to but not including the first ":".
       (let [b64-content (.substring ^String s i end-colon-pos)
             ctx'' (assoc ctx' :i (inc end-colon-pos))] ;; 5. Consume the ":" character
         ;; 6. If b64_content contains a character not in ALPHA, DIGIT, "+", "/", and "=", fail parsing.
-        (doseq [ch b64-content]
-          (when-not (or (alpha? ch) (digit? ch) (= ch \+) (= ch \/) (= ch \=))
-            (parse-error ctx' "Invalid base64 character" :found ch :expected "ALPHA, DIGIT, '+', '/', or '='")))
+        (loop [idx 0]
+          (when (< idx (.length ^String b64-content))
+            (let [ch (.charAt ^String b64-content idx)]
+              (if (or (alpha? ch) (digit? ch) (= ch \+) (= ch \/) (= ch \=))
+                (recur (inc idx))
+                (parse-error (assoc ctx' :i (+ i idx 1)) "Invalid base64 character" :found ch :expected "ALPHA, DIGIT, '+', '/', or '='")))))
         ;; 7. Let binary_content be the result of base64-decoding, synthesizing padding if necessary.
         (try
           (let [decoder (Base64/getDecoder)
@@ -320,7 +333,7 @@
             ;; 8. Return binary_content.
             [{:type :bytes :value binary-content} ctx''])
           (catch Exception _
-            (parse-error ctx' "Invalid base64 encoding")))))))
+            (parse-error (assoc ctx' :i (inc end-colon-pos)) "Invalid base64 encoding")))))))
 (defn parse-sfv-boolean [ctx]
   ;; RFC 9651 §4.2.8: Parsing a Boolean
   ;; 1. If the first character of input_string is not "?", fail parsing.
@@ -354,7 +367,12 @@
           [output-date ctx''] (parse-integer-or-decimal ctx')]
         ;; 4. If output_date is a Decimal, fail parsing.
       (when (= (:type output-date) :decimal)
-        (parse-error ctx'' "Date must be an integer, not decimal"))
+        ;; Find the position of the decimal point
+        (let [s (:s ctx')
+              start-pos (:i ctx')
+              end-pos (:i ctx'')
+              decimal-pos (.indexOf ^String s "." start-pos)]
+          (parse-error (assoc ctx' :i decimal-pos) "Date must be an integer")))
         ;; 5. Return output_date.
       [{:type :date :value (:value output-date)} ctx''])))
 
@@ -364,11 +382,11 @@
   [ctx]
   (let [[c1 ctx'] (consume-char ctx)]
     (when-not (lc-hexdig? c1)
-      (parse-error ctx' "Invalid hex digit in percent sequence"
+      (parse-error ctx "Invalid hex digit in percent sequence"
                    :found c1 :expected "lowercase hex digit"))
     (let [[c2 ctx''] (consume-char ctx')]
       (when-not (lc-hexdig? c2)
-        (parse-error ctx'' "Invalid hex digit in percent sequence"
+        (parse-error ctx' "Invalid hex digit in percent sequence"
                      :found c2 :expected "lowercase hex digit"))
       (let [byte-val (+ (* (hex-digit-value c1) 16) (hex-digit-value c2))]
         [byte-val ctx'']))))
@@ -631,17 +649,30 @@
   (parse-dict s-or-bytes))
 (defn parse [field-type s-or-bytes]
   ;; RFC 9651 §4.2: Parsing Structured Fields
-  (case field-type
-    "list" (parse-list s-or-bytes)
-    "dictionary" (parse-dict s-or-bytes)
-    "item" (let [ctx (init-ctx s-or-bytes)
-                 ctx' (skip-sp ctx)
-                 [item ctx''] (parse-item ctx')
-                 ctx''' (skip-sp ctx'')]
-             (when-not (eof? ctx''')
-               (parse-error ctx''' "Unexpected characters after item"))
-             item)
-    (parse-error {:i 0} (str "Unknown field type: " field-type))))
+  (if (nil? field-type)
+    ;; When field-type is nil, validate the field line for invalid characters
+    (let [s (if (string? s-or-bytes) s-or-bytes 
+                (try (ascii-string s-or-bytes)
+                     (catch Exception e
+                       ;; If ascii-string fails, we still need to validate with position
+                       (if (instance? (Class/forName "[B") s-or-bytes)
+                         (String. ^bytes s-or-bytes StandardCharsets/UTF_8)
+                         (str s-or-bytes)))))
+          invalid-pos (validate-field-line s)]
+      (if invalid-pos
+        (parse-error {:i invalid-pos} "parse error: Invalid character in field line")
+        (parse-error {:i 0} "No field type specified")))
+    (case field-type
+      "list" (parse-list s-or-bytes)
+      "dictionary" (parse-dict s-or-bytes)
+      "item" (let [ctx (init-ctx s-or-bytes)
+                   ctx' (skip-sp ctx)
+                   [item ctx''] (parse-item ctx')
+                   ctx''' (skip-sp ctx'')]
+               (when-not (eof? ctx''')
+                 (parse-error ctx''' "Unexpected characters after item"))
+               item)
+      (parse-error {:i 0} (str "Unknown field type: " field-type)))))
 
 ;; Serialization stubs (to be implemented)
 (defn serialize [_x] (parse-error {:i 0} "not implemented"))
