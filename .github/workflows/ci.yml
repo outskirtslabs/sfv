@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+---
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish artifacts to Clojars"
+        required: true
+        type: boolean
+        default: false
+jobs:
+  build-clojure:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: true
+      - uses: DeterminateSystems/flakehub-cache-action@main
+      - uses: DeterminateSystems/flake-checker-action@main
+      - name: Run flake check
+        run: nix flake check
+      - name: Verify
+        run: nix develop --command -- bb ci
+      - name: Build jar artifacts
+        run: nix develop --command -- bb jar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # tag: v4.6.2
+        with:
+          name: sfv.jar
+          path: target/*.jar
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Publish artifacts to clojars
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true'
+        run: nix develop --command -- bb publish
