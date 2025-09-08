@@ -13,6 +13,12 @@
   (with-open [reader (io/reader (io/resource (str "fixtures/" filename)))]
     (json/read-json reader :key-fn keyword)))
 
+(defn load-serialization-test-cases
+  "Load serialization test cases from a JSON file in the serialisation-tests directory"
+  [filename]
+  (with-open [reader (io/reader (io/resource (str "fixtures/serialisation-tests/" filename)))]
+    (json/read-json reader :key-fn keyword)))
+
 (defn base32->bytes
   "Decode Base32 to bytes using Apache Commons Codec"
   [base32-str]
@@ -114,7 +120,7 @@
     (pp/pprint t)
     (let [input (if (= 1 (count raw))
                   (first raw)
-                  (impl/combine-field-lines raw))] ; Combine multiple lines per RFC
+                  (impl/combine-field-lines raw))]
       (if must_fail
         (is (thrown? Exception (impl/parse header_type input))
             (str "Expected parse to fail for: " name))
@@ -128,20 +134,96 @@
                    "\nExpected: " (pr-str expected-clojure)
                    "\nActual: " (pr-str result))))))))
 
+(defn run-serialize-test
+  "Run a single serialization test case"
+  [{:keys [name header_type expected canonical must_fail] :as t}]
+  (testing (str "Serialize test: " name)
+    (println "conformance test definition:")
+    (pp/pprint t)
+    (let [input-clojure (case header_type
+                          "item" (expected-item->clojure expected)
+                          "list" (expected-list->clojure expected)
+                          "dictionary" (expected-dict->clojure expected))]
+      (if must_fail
+        (is (thrown? Exception (impl/serialize input-clojure))
+            (str "Expected serialize to fail for: " name))
+        (let [result (impl/serialize input-clojure)
+              expected-canonical (if canonical
+                                   (if (= 1 (count canonical))
+                                     (first canonical)
+                                     (str/join ", " canonical))
+                                   nil)]
+          (if expected-canonical
+            (is (= expected-canonical result)
+                (str "Serialize result mismatch for: " name
+                     "\nExpected: " (pr-str expected-canonical)
+                     "\nActual: " (pr-str result)))
+            (is (string? result)
+                (str "Serialize should return a string for: " name))))))))
+
+(defn run-serialize-conformance-test
+  "Run a round-trip serialization test for a conformance test case"
+  [{:keys [name raw header_type canonical] :as t}]
+  (testing (str "Serialize conformance test: " name)
+    (println "conformance test definition:")
+    (pp/pprint t)
+    (let [input (if (= 1 (count raw))
+                  (first raw)
+                  (impl/combine-field-lines raw))
+          parsed-result (impl/parse header_type input)
+          serialized-result (impl/serialize parsed-result)
+          expected-output (if canonical
+                            (if (= 1 (count canonical))
+                              (first canonical)
+                              (str/join ", " canonical))
+                            input)]
+      (is (= expected-output serialized-result)
+          (str "Round-trip serialization mismatch for: " name
+               "\nOriginal input: " (pr-str input)
+               "\nExpected output: " (pr-str expected-output)
+               "\nActual output: " (pr-str serialized-result))))))
+
+(defn safe-test-name
+  "Convert a test name to a safe symbol name"
+  [name]
+  (-> name
+      (str/replace #"[^a-zA-Z0-9_]" "_")
+      (str/replace #"_{2,}" "_")
+      (str/replace #"^_|_$" "")))
+
+(defn safe-filename
+  "Convert a filename to a safe symbol name"
+  [filename]
+  (-> filename
+      (str/replace #"\.json$" "")
+      (str/replace #"-" "_")))
+
 (defmacro run-conformance-tests
   "Generate test cases from a JSON file at compile time"
   [filename]
-  (let [test-cases (with-open [reader (io/reader (str "test/fixtures/" filename))]
-                     (json/read-json reader :key-fn keyword))
-        safe-filename (-> filename (str/replace #"\.json$" "") (str/replace #"-" "_"))]
+  (let [test-cases (load-test-cases filename)
+        filename-safe (safe-filename filename)]
+    `(do
+       ~@(mapcat
+          (fn [test-case]
+            (let [name-safe (safe-test-name (:name test-case))
+                  can-serialize (not (:must_fail test-case))]
+              (cond-> [`(deftest ~(symbol (str filename-safe "_" name-safe))
+                          (run-parse-test ~test-case))]
+                can-serialize (conj `(deftest ~(symbol (str "serialize_" filename-safe "_" name-safe))
+                                       (run-serialize-conformance-test ~test-case))))))
+          test-cases))))
+
+(defmacro run-serialization-tests
+  "Generate serialization test cases from a JSON file at compile time"
+  [filename]
+  (let [test-cases (load-serialization-test-cases filename)
+        filename-safe (safe-filename filename)]
     `(do
        ~@(for [test-case test-cases
-               :let [safe-name (-> (:name test-case)
-                                   (str/replace #"[^a-zA-Z0-9_]" "_")
-                                   (str/replace #"_{2,}" "_")
-                                   (str/replace #"^_|_$" ""))]]
-           `(deftest ~(symbol (str safe-filename "_" safe-name))
-              (run-parse-test ~test-case))))))
+               :let [name-safe (safe-test-name (:name test-case))]]
+           `(deftest ~(symbol (str "serialize_" filename-safe "_" name-safe))
+              (run-serialize-test ~test-case))))))
 
 (def test-data-files ["binary.json"
                       "boolean.json"
@@ -164,30 +246,20 @@
                       "token-generated.json"
                       "token.json"])
 
+(def serialization-test-files ["string-generated.json"
+                               "token-generated.json"
+                               "key-generated.json"
+                               "number.json"])
+
 (defmacro generate-all-conformance-tests []
   `(do
-     ~@(for [filename ["binary.json"
-                       "boolean.json"
-                       "date.json"
-                       "dictionary.json"
-                       "display-string.json"
-                       "examples.json"
-                       "item.json"
-                       "key-generated.json"
-                       "large-generated.json"
-                       "list.json"
-                       "listlist.json"
-                       "number-generated.json"
-                       "number.json"
-                       "param-dict.json"
-                       "param-list.json"
-                       "param-listlist.json"
-                       "string-generated.json"
-                       "string.json"
-                       "token-generated.json"
-                       "token.json"]]
+     ~@(for [filename test-data-files]
          `(run-conformance-tests ~filename))))
 
+(defmacro generate-all-serialization-tests []
+  `(do
+     ~@(for [filename serialization-test-files]
+         `(run-serialization-tests ~filename))))
+
 (generate-all-conformance-tests)
-
-
+(generate-all-serialization-tests)

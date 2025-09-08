@@ -1,4 +1,4 @@
-(ns ol.sfv.impl-test
+(ns ol.sfv.parser-test
   (:require [clojure.test :refer [deftest is testing are]]
             [ol.sfv.impl :as impl]))
 

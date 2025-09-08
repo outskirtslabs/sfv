@@ -97,8 +97,9 @@
     (String. ^bytes s StandardCharsets/US_ASCII)
     :else (throw (ex-info "ascii-string: expected string or bytes" {:input s}))))
 
-(defn validate-field-line [s]
+(defn validate-field-line
   "Validate field line characters and return position of first invalid character, or nil if valid"
+  [s]
   (loop [i 0]
     (if (>= i (.length ^String s))
       nil
@@ -404,8 +405,6 @@
     (catch java.nio.charset.CharacterCodingException e
       [nil (.getMessage e)])))
 
-
-
 (defn parse-display-string [ctx]
   ;; RFC 9651 §4.2.10: Parsing a Display String
   ;; 1. If the first two characters of input_string are not "%" followed by DQUOTE, fail parsing.
@@ -476,8 +475,10 @@
                                                                                   (recur (inc i))
                                                                                   false)))]
                                                 (if has-multiple-surrogates
-                                                  (+ (aget offsets surrogate-byte-pos) 2)  ; Point to 'd' in %ed
-                                                  (aget offsets surrogate-byte-pos)))      ; Point to '%' in %ed
+                                                  ;; Point to 'd' in %ed
+                                                  (+ (aget offsets surrogate-byte-pos) 2)
+                                                  ;; Point to '%' in %ed
+                                                  (aget offsets surrogate-byte-pos)))
                                               ;; Non-surrogate error: find first problematic byte
                                               (let [first-percent-byte (loop [i 0]
                                                                          (if (< i total-bytes)
@@ -488,7 +489,8 @@
                                                                            0))]
                                                 (let [b (bit-and (aget bytes first-percent-byte) 0xFF)]
                                                   (if (= b 0x80)
-                                                    (+ (aget offsets first-percent-byte) 1)  ; Point to middle for %80
+                                                    ;; Point to middle for %80
+                                                    (+ (aget offsets first-percent-byte) 1)
                                                     (aget offsets first-percent-byte)))))
                             error-input-pos (if (< bytes-processed total-bytes)
                                               (+ start-pos adjusted-offset)
@@ -708,7 +710,7 @@
   ;; RFC 9651 §4.2: Parsing Structured Fields
   (if (nil? field-type)
     ;; When field-type is nil, validate the field line for invalid characters
-    (let [s (if (string? s-or-bytes) s-or-bytes 
+    (let [s (if (string? s-or-bytes) s-or-bytes
                 (try (ascii-string s-or-bytes)
                      (catch Exception e
                        ;; If ascii-string fails, we still need to validate with position
@@ -731,13 +733,229 @@
                item)
       (parse-error {:i 0} (str "Unknown field type: " field-type)))))
 
-;; Serialization stubs (to be implemented)
-(defn serialize [_x] (parse-error {:i 0} "not implemented"))
-(defn serialize-list [_l] (parse-error {:i 0} "not implemented"))
-(defn serialize-dict [_d] (parse-error {:i 0} "not implemented"))
-(defn serialize-item [_i] (parse-error {:i 0} "not implemented"))
+;; ---------------------------------------------------------------------------
+;; Serialization (RFC 9651 Section 4.1)
 
-;; Utilities
+(defn serialize-integer
+  "RFC 9651 §4.1.4: Serializing an Integer"
+  [v]
+  (when-not (and (clojure.core/integer? v)
+                 (<= -999999999999999 v 999999999999999))
+    (throw (ex-info "Integer out of range" {:value v})))
+  (str v))
+
+(defn serialize-decimal
+  "RFC 9651 §4.1.5: Serializing a Decimal"
+  [v]
+  (let [bd (if (instance? java.math.BigDecimal v)
+             v
+             (java.math.BigDecimal. (double v)))
+        ;; Round to 3 decimal places using HALF_EVEN (banker's rounding)
+        rounded (.setScale bd 3 java.math.RoundingMode/HALF_EVEN)
+        ;; Check integer part length
+        int-part (.toBigInteger (.setScale rounded 0 java.math.RoundingMode/DOWN))
+        int-str (.toString int-part)]
+    (when (> (.length (str/replace int-str "-" "")) 12)
+      (throw (ex-info "Decimal integer part too long" {:value v})))
+    ;; Format the decimal, stripping trailing zeros
+    (let [s (.toPlainString rounded)
+          ;; Remove trailing zeros after decimal point, but keep at least one
+          s (if (str/includes? s ".")
+              (-> s
+                  (str/replace #"0+$" "")
+                  (str/replace #"\.$" ".0"))
+              (str s ".0"))]
+      s)))
+
+(defn serialize-string
+  "RFC 9651 §4.1.6: Serializing a String"
+  [v]
+  (let [sb (StringBuilder.)]
+    (.append sb "\"")
+    (doseq [ch v]
+      (cond
+        (= ch \") (doto sb (.append "\\") (.append "\""))
+        (= ch \\) (doto sb (.append "\\") (.append "\\"))
+        (or (< (int ch) 0x20) (>= (int ch) 0x7F))
+        (throw (ex-info "Invalid character in string" {:char ch}))
+        :else (.append sb ch)))
+    (.append sb "\"")
+    (.toString sb)))
+
+(defn serialize-token
+  "RFC 9651 §4.1.7: Serializing a Token"
+  [v]
+  (when (empty? v)
+    (throw (ex-info "Empty token" {})))
+  (let [first-ch (.charAt ^String v 0)]
+    (when-not (or (alpha? first-ch) (= first-ch \*))
+      (throw (ex-info "Invalid token start" {:char first-ch})))
+    (doseq [i (range 1 (.length ^String v))]
+      (let [ch (.charAt ^String v i)]
+        (when-not (token-char? ch)
+          (throw (ex-info "Invalid token character" {:char ch :pos i})))))
+    v))
+
+(defn serialize-byte-sequence
+  "RFC 9651 §4.1.8: Serializing a Byte Sequence"
+  [v]
+  (let [encoder (Base64/getEncoder)
+        encoded (.encodeToString encoder ^bytes v)]
+    (str ":" encoded ":")))
+
+(defn serialize-boolean
+  "RFC 9651 §4.1.9: Serializing a Boolean"
+  [v]
+  (if v "?1" "?0"))
+
+(defn serialize-date
+  "RFC 9651 §4.1.10: Serializing a Date"
+  [v]
+  (when-not (and (clojure.core/integer? v)
+                 (<= -62135596800 v 253402214400))
+    (throw (ex-info "Date out of range" {:value v})))
+  (str "@" v))
+
+(defn serialize-display-string
+  "RFC 9651 §4.1.11: Serializing a Display String"
+  [v]
+  (let [byte-array (.getBytes ^String v StandardCharsets/UTF_8)
+        sb (StringBuilder.)]
+    (.append sb "%\"")
+    (doseq [b byte-array]
+      (let [ch (bit-and b 0xFF)]
+        (cond
+          (= ch 0x25) (.append sb "%25") ;; %
+          (= ch 0x22) (.append sb "%22") ;; "
+          (or (< ch 0x20) (>= ch 0x7F))
+          (.append sb (format "%%%02x" ch))
+          :else (.append sb (char ch)))))
+    (.append sb "\"")
+    (.toString sb)))
+
+(defn serialize-bare-item
+  "RFC 9651 §4.1.3.1: Serializing a Bare Item"
+  [item]
+  (let [v (:value item)]
+    (case (:type item)
+      :integer (serialize-integer v)
+      :decimal (serialize-decimal v)
+      :string (serialize-string v)
+      :token (serialize-token v)
+      :bytes (serialize-byte-sequence v)
+      :boolean (serialize-boolean v)
+      :date (serialize-date v)
+      :dstring (serialize-display-string v)
+      (throw (ex-info "Unknown bare item type" {:type (:type item)})))))
+
+(defn serialize-key
+  "RFC 9651 §4.1.1.3: Serializing a Key"
+  [k]
+  (when (empty? k)
+    (throw (ex-info "Empty key" {})))
+  (let [first-ch (.charAt ^String k 0)]
+    (when-not (or (lcalpha? first-ch) (= first-ch \*))
+      (throw (ex-info "Invalid key start" {:char first-ch})))
+    (doseq [i (range 1 (.length ^String k))]
+      (let [ch (.charAt ^String k i)]
+        (when-not (or (lcalpha? ch) (digit? ch)
+                      (= ch \_) (= ch \-) (= ch \.) (= ch \*))
+          (throw (ex-info "Invalid key character" {:char ch :pos i})))))
+    k))
+
+(defn serialize-parameters
+  "RFC 9651 §4.1.1.2: Serializing Parameters"
+  [params]
+  (let [sb (StringBuilder.)]
+    (doseq [[k v] params]
+      (.append sb ";")
+      (.append sb (serialize-key k))
+      ;; If param_value is not Boolean true, append = and value
+      (when-not (and (= (:type v) :boolean) (= (:value v) true))
+        (.append sb "=")
+        (.append sb (serialize-bare-item v))))
+    (.toString sb)))
+
+(defn serialize-item
+  "RFC 9651 §4.1.3: Serializing an Item"
+  [item]
+  (let [sb (StringBuilder.)]
+    (.append sb (serialize-bare-item (:bare item)))
+    (.append sb (serialize-parameters (:params item)))
+    (.toString sb)))
+
+(defn serialize-inner-list
+  "RFC 9651 §4.1.1.1: Serializing an Inner List"
+  [inner-list]
+  (let [sb (StringBuilder.)]
+    (.append sb "(")
+    (let [items (:items inner-list)]
+      (when (seq items)
+        (loop [remaining items first? true]
+          (when (seq remaining)
+            (when-not first?
+              (.append sb " "))
+            (.append sb (serialize-item (first remaining)))
+            (recur (rest remaining) false)))))
+    (.append sb ")")
+    (.append sb (serialize-parameters (:params inner-list)))
+    (.toString sb)))
+
+(defn serialize-list
+  "RFC 9651 §4.1.1: Serializing a List"
+  [lst]
+  (let [members (:members lst)]
+    (if (empty? members)
+      ""
+      (let [sb (StringBuilder.)]
+        (loop [remaining members first? true]
+          (when (seq remaining)
+            (when-not first?
+              (.append sb ", "))
+            (let [member (first remaining)]
+              (if (= (:type member) :inner-list)
+                (.append sb (serialize-inner-list member))
+                (.append sb (serialize-item member))))
+            (recur (rest remaining) false)))
+        (.toString sb)))))
+
+(defn serialize-dict
+  "RFC 9651 §4.1.2: Serializing a Dictionary"
+  [dict]
+  (let [entries (:entries dict)]
+    (if (empty? entries)
+      ""
+      (let [sb (StringBuilder.)]
+        (loop [remaining entries first? true]
+          (when (seq remaining)
+            (when-not first?
+              (.append sb ", "))
+            (let [[k v] (first remaining)]
+              (.append sb (serialize-key k))
+              ;; Check if this is a boolean true item (flag)
+              (if (and (= (:type v) :item)
+                       (= (:type (:bare v)) :boolean)
+                       (= (:value (:bare v)) true))
+                ;; Boolean true: just append parameters
+                (.append sb (serialize-parameters (:params v)))
+                ;; Otherwise: append = and serialize the value
+                (do
+                  (.append sb "=")
+                  (if (= (:type v) :inner-list)
+                    (.append sb (serialize-inner-list v))
+                    (.append sb (serialize-item v))))))
+            (recur (rest remaining) false)))
+        (.toString sb)))))
+
+(defn serialize
+  "RFC 9651 §4.1: Serializing Structured Fields"
+  [x]
+  (case (:type x)
+    :list (serialize-list x)
+    :dict (serialize-dict x)
+    :item (serialize-item x)
+    (throw (ex-info "Unknown structured field type" {:type (:type x)}))))
+
 (defn combine-field-lines [lines] (str/join ", " lines))
 
 (defn ascii-bytes [s] (.getBytes ^String s StandardCharsets/US_ASCII))
