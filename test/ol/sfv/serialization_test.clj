@@ -1,3 +1,5 @@
+;; Copyright © 2025 Casey Link <casey@outskirtslabs.com>
+;; SPDX-License-Identifier: MIT
 (ns ol.sfv.serialization-test
   (:require [clojure.test :refer [deftest is testing]]
             [ol.sfv :as sfv]))

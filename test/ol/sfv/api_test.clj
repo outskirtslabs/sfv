@@ -1,3 +1,5 @@
+;; Copyright © 2025 Casey Link <casey@outskirtslabs.com>
+;; SPDX-License-Identifier: MIT
 (ns ol.sfv.api-test
   "tests for all the public api functions"
   (:require [clojure.test :refer [deftest testing is are]]
