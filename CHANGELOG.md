@@ -6,7 +6,7 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 
 ## [UNRELEASED]
 
-no changes yet
+- Removed references in docstrings to old functions that existed in an unreleased version
 
 ## `v0.1.0` (2025-09-08)
 
