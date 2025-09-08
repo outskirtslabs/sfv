@@ -10,7 +10,6 @@ TASK.md
 archive/
 realclientip-go/
 rfc7239.txt
-src/user.clj
 target/
 .clojure-mcp
 extra/

@@ -1,15 +1,16 @@
-{:paths ["src"]
- :deps {}
+{:paths   ["src"]
+ :deps    {}
  :aliases {:kaocha {:extra-paths ["test"]
-                    :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
-                                 com.cnuernber/charred {:mvn/version "1.037"}
-                                 commons-codec/commons-codec {:mvn/version "1.19.0"}}
-                    :main-opts ["-m" "kaocha.runner"]}
-           :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.10"
-                                                         :git/sha "deedd62"}
-                          slipset/deps-deploy {:mvn/version "0.2.2"}}
-                   :ns-default build}
-           :neil {:project {:name com.outskirtslabs/rfc9651-sfv
-                            :license {:id "MIT"}
-                            :description ""
-                            :version "0.1.0"}}}}
+                    :extra-deps  {lambdaisland/kaocha         {:mvn/version "1.91.1392"}
+                                  com.cnuernber/charred       {:mvn/version "1.037"}
+                                  commons-codec/commons-codec {:mvn/version "1.19.0"}}
+                    :main-opts   ["-m" "kaocha.runner"]}
+           :dev    {:extra-paths ["dev"]}
+           :build  {:deps       {io.github.clojure/tools.build {:git/tag "v0.10.10"
+                                                                :git/sha "deedd62"}
+                                 slipset/deps-deploy           {:mvn/version "0.2.2"}}
+                    :ns-default build}
+           :neil   {:project {:name        com.outskirtslabs/sfv
+                              :license     {:id "MIT"}
+                              :description "A 0-dependency Clojure library for parsing and generating Structured Field Values for HTTP (RFC 9651/8941)"
+                              :version     "0.1.0"}}}}

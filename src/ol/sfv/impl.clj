@@ -116,6 +116,7 @@
 (defn peek-char [ctx]
   (let [i (:i ctx) s (:s ctx) n (:n ctx)]
     (when (< i n) (.charAt ^String s i))))
+
 (defn consume-char [ctx]
   (if (eof? ctx) [nil ctx] (let [ch (peek-char ctx)] [ch (update ctx :i inc)])))
 
@@ -244,12 +245,6 @@
                                   bd (if (= sign -1) (.negate bd) bd)]
                               [{:type :decimal :value bd} ctx']))))))))))))))
 
-;; The remaining parsers (parse-string, parse-token, parse-byte-sequence,
-;; parse-boolean, parse-date, parse-display-string, parse-parameters,
-;; item/inner-list/list/dictionary) will be implemented  following
-;; the exact step-by-step algorithms in RFC 9651 (Section 4.2 and 4.1).
-
-;; Stub other parsers for now (kept until implemented):
 (defn parse-string [ctx]
   ;; RFC 9651 §4.2.5: Parsing a String
   (let [sb (StringBuilder.)
@@ -335,6 +330,7 @@
             [{:type :bytes :value binary-content} ctx''])
           (catch Exception _
             (parse-error (assoc ctx' :i (inc end-colon-pos)) "Invalid base64 encoding")))))))
+
 (defn parse-sfv-boolean [ctx]
   ;; RFC 9651 §4.2.8: Parsing a Boolean
   ;; 1. If the first character of input_string is not "?", fail parsing.
@@ -356,6 +352,7 @@
         ;; 5. No value has matched; fail parsing.
         :else
         (parse-error ctx' "Expected '0' or '1' after '?'" :found ch2 :expected "0 or 1")))))
+
 (defn parse-date [ctx]
   ;; RFC 9651 §4.2.9: Parsing a Date
   ;; 1. If the first character of input_string is not "@", fail parsing.
@@ -429,7 +426,7 @@
                           unicode-str (-> decoder (.decode byte-buffer) .toString)]
                       [{:type :dstring :value unicode-str} ctx-next])
                     (catch java.nio.charset.CharacterCodingException _
-                      ;; Use Java-style position mapping to find exact error location
+                      ;; a position mapping technique to find the exact error position
                       (let [total-bytes (alength bytes)
                             ;; Build offset array like Java implementation
                             content-length (- (:i ctx-current) start-pos)
@@ -535,6 +532,7 @@
       ;; 8. Otherwise, the item type is unrecognized; fail parsing
       :else
       (parse-error ctx "Unrecognized bare item type" :found ch :expected "-, DIGIT, \", ALPHA, *, :, ?, @, or %"))))
+
 (defn parse-parameters [ctx]
   ;; RFC 9651 §4.2.3.2: Parsing Parameters
   ;; 1. Let parameters be an empty, ordered map.
@@ -550,24 +548,24 @@
           ;; 2.2. Consume the ";" character from the beginning.
           (let [[_ ctx'] (consume-char ctx)
                 ;; 2.3. Discard any leading SP characters.
-                ctx'' (skip-sp ctx')
+                ctx' (skip-sp ctx')
                 ;; 2.4. Let param_key be the result of running Parsing a Key.
-                [param-key ctx'''] (parse-key ctx'')
+                [param-key ctx'] (parse-key ctx')
                 ;; 2.5. Let param_value be Boolean true.
                 param-value {:type :boolean :value true}
-                ch2 (peek-char ctx''')]
+                ch2 (peek-char ctx')]
             ;; 2.6. If the first character is "=":
             (if (= ch2 \=)
               ;; 2.6.1. Consume the "=" character.
-              (let [[_ ctx''''] (consume-char ctx''')
+              (let [[_ ctx''] (consume-char ctx')
                     ;; 2.6.2. Let param_value be the result of running Parsing a Bare Item.
-                    [param-value' ctx'''''] (parse-bare-item ctx'''')]
+                    [param-value' ctx''] (parse-bare-item ctx'')]
                 ;; 2.7 & 2.8. Append/overwrite key param_key with value param_value (last-write-wins).
-                (recur ctx''''' (conj (filterv #(not= (first %) param-key) parameters)
-                                      [param-key param-value'])))
+                (recur ctx'' (conj (filterv #(not= (first %) param-key) parameters)
+                                   [param-key param-value'])))
               ;; No "=" found, use default Boolean true value
-              (recur ctx''' (conj (filterv #(not= (first %) param-key) parameters)
-                                  [param-key param-value])))))))))
+              (recur ctx' (conj (filterv #(not= (first %) param-key) parameters)
+                                [param-key param-value])))))))))
 (defn parse-item [ctx]
   ;; RFC 9651 §4.2.3: Parsing an Item
   ;; 1. Let bare_item be the result of running Parsing a Bare Item with input_string.
@@ -576,31 +574,33 @@
         [parameters ctx''] (parse-parameters ctx')]
     ;; 3. Return the tuple (bare_item, parameters).
     [{:type :item :bare bare-item :params parameters} ctx'']))
+
 (defn parse-inner-list [ctx]
   (let [ch (peek-char ctx)]
     (when-not (= ch \()
       (parse-error ctx "Expected opening '(' for inner list" :found ch :expected "("))
     (let [[_ ctx'] (consume-char ctx)
-          ctx'' (skip-sp ctx')]
-      (loop [ctx'' ctx'' inner-list []]
-        (if (eof? ctx'')
-          (parse-error ctx'' "Unterminated inner list")
-          (let [ch (peek-char ctx'')]
+          ctx' (skip-sp ctx')]
+      (loop [ctx' ctx' inner-list []]
+        (if (eof? ctx')
+          (parse-error ctx' "Unterminated inner list")
+          (let [ch (peek-char ctx')]
             (if (= ch \))
-              (let [[_ ctx'''] (consume-char ctx'')
-                    ctx'''' (skip-sp ctx''')
-                    [parameters ctx'''''] (parse-parameters ctx'''')]
-                [{:type :inner-list :items inner-list :params parameters} ctx'''''])
-              (let [[item ctx'''] (parse-item ctx'')
-                    next-ch (peek-char ctx''')]
+              (let [[_ ctx'] (consume-char ctx')
+                    ctx' (skip-sp ctx')
+                    [parameters ctx'] (parse-parameters ctx')]
+                [{:type :inner-list :items inner-list :params parameters} ctx'])
+              (let [[item ctx'] (parse-item ctx')
+                    next-ch (peek-char ctx')]
                 ;; the rfc requires items in inner lists to be separated by spaces
                 ;; the next character must be either SP or ')'
-                (when-not (or (= next-ch \space) (= next-ch \)) (eof? ctx'''))
-                  (parse-error ctx''' "Expected SP or ')' in Inner List"
+                (when-not (or (= next-ch \space) (= next-ch \)) (eof? ctx'))
+                  (parse-error ctx' "Expected SP or ')' in Inner List"
                                :found next-ch :expected "SP or ')'"))
                 (let [inner-list' (conj inner-list item)
-                      ctx'''' (skip-sp ctx''')]
-                  (recur ctx'''' inner-list'))))))))))
+                      ctx' (skip-sp ctx')]
+                  (recur ctx' inner-list'))))))))))
+
 (defn parse-item-or-inner-list [ctx]
   ;; RFC 9651 §4.2.1.1: Parsing an Item or Inner List
   ;; 1. If the first character is "(", return parse-inner-list
@@ -609,35 +609,36 @@
       (parse-inner-list ctx)
       ;; 2. Otherwise, return parse-item
       (parse-item ctx))))
+
 (defn parse-list-members [ctx]
   ;; Parse comma-separated list members following RFC 9651 §4.2.1
   (loop [ctx ctx members []]
     (let [ctx' (skip-ows ctx)]
       (if (eof? ctx')
         [members ctx']
-        (let [[member ctx''] (parse-item-or-inner-list ctx')
+        (let [[member ctx'] (parse-item-or-inner-list ctx')
               members' (conj members member)
-              ctx''' (skip-ows ctx'')]
-          (if (eof? ctx''')
-            [members' ctx''']
-            (let [ch (peek-char ctx''')]
+              ctx' (skip-ows ctx')]
+          (if (eof? ctx')
+            [members' ctx']
+            (let [ch (peek-char ctx')]
               (if (= ch \,)
-                (let [[_ ctx''''] (consume-char ctx''')
-                      ctx''''' (skip-ows ctx'''')]
+                (let [[_ ctx''] (consume-char ctx')
+                      ctx'' (skip-ows ctx'')]
                   ;; check for trailing comma after consuming comma and OWS
-                  (if (eof? ctx''''')
-                    (parse-error ctx''''' "Found trailing COMMA in List")
-                    (recur ctx''''' members')))
-                [members' ctx''']))))))))
+                  (if (eof? ctx'')
+                    (parse-error ctx'' "Found trailing COMMA in List")
+                    (recur ctx'' members')))
+                [members' ctx']))))))))
 
 (defn parse-list [s-or-bytes]
   ;; RFC 9651 §4.2.1: Parsing a List
   (let [ctx (init-ctx s-or-bytes)
         ctx' (skip-sp ctx)
-        [members ctx''] (parse-list-members ctx')
-        ctx''' (skip-sp ctx'')]
-    (when-not (eof? ctx''')
-      (parse-error ctx''' "Unexpected characters after list"))
+        [members ctx'] (parse-list-members ctx')
+        ctx'' (skip-sp ctx')]
+    (when-not (eof? ctx'')
+      (parse-error ctx'' "Unexpected characters after list"))
     {:type :list :members members}))
 
 (defn parse-dict [s-or-bytes]
@@ -710,11 +711,11 @@
       "list" (parse-list s-or-bytes)
       "dictionary" (parse-dict s-or-bytes)
       "item" (let [ctx (init-ctx s-or-bytes)
-                   ctx' (skip-sp ctx)
-                   [item ctx''] (parse-item ctx')
-                   ctx''' (skip-sp ctx'')]
-               (when-not (eof? ctx''')
-                 (parse-error ctx''' "Unexpected characters after item"))
+                   ctx (skip-sp ctx)
+                   [item ctx'] (parse-item ctx)
+                   ctx' (skip-sp ctx')]
+               (when-not (eof? ctx')
+                 (parse-error ctx' "Unexpected characters after item"))
                item)
       (parse-error {:i 0} (str "Unknown field type: " field-type)))))
 

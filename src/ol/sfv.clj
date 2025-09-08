@@ -139,7 +139,7 @@
   (impl/parse-dict s-or-bytes))
 
 (defn parse-item [s-or-bytes]
-  (impl/parse-item s-or-bytes))
+  (first (impl/parse-item (impl/init-ctx s-or-bytes))))
 
 ;; Serialization
 (defn serialize [x]
