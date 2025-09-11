@@ -1,9 +1,9 @@
 {:paths   ["src"]
  :deps    {}
  :aliases {:kaocha {:extra-paths ["test"]
-                    :extra-deps  {lambdaisland/kaocha         {:mvn/version "1.91.1392"}
-                                  com.cnuernber/charred       {:mvn/version "1.037"}
-                                  commons-codec/commons-codec {:mvn/version "1.19.0"}}
+                    :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                                  cheshire/cheshire   {:mvn/version "6.1.0"}
+                                  mvxcvi/alphabase    {:mvn/version "3.0.185"}}
                     :main-opts   ["-m" "kaocha.runner"]}
            :dev    {:extra-paths ["dev"]}
            :build  {:deps       {io.github.clojure/tools.build {:git/tag "v0.10.10"

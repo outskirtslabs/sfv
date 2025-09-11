@@ -1,33 +1,27 @@
 ;; Copyright © 2025 Casey Link <casey@outskirtslabs.com>
 ;; SPDX-License-Identifier: MIT
 (ns ol.sfv.conformance-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [clojure.pprint :as pp]
-            [clojure.java.io :as io]
-            [clojure.string :as str]
-            [clojure.walk :as walk]
-            [charred.api :as json]
-            [ol.sfv.impl :as impl]))
+  (:require
+   [alphabase.base32 :as b32]
+   [cheshire.core :as json]
+   [clojure.java.io :as io]
+   [clojure.pprint :as pp]
+   [clojure.string :as str]
+   [clojure.test :refer [deftest is testing]]
+   [clojure.walk :as walk]
+   [ol.sfv.impl :as impl]))
 
 (defn load-test-cases
   "Load test cases from a JSON file in the structured-field-tests directory"
   [filename]
   (with-open [reader (io/reader (io/resource (str "fixtures/" filename)))]
-    (json/read-json reader :key-fn keyword)))
+    (json/parse-stream-strict reader true)))
 
 (defn load-serialization-test-cases
   "Load serialization test cases from a JSON file in the serialisation-tests directory"
   [filename]
   (with-open [reader (io/reader (io/resource (str "fixtures/serialisation-tests/" filename)))]
-    (json/read-json reader :key-fn keyword)))
-
-(defn base32->bytes
-  "Decode Base32 to bytes using Apache Commons Codec"
-  [base32-str]
-  (if (str/blank? base32-str)
-    (byte-array 0)
-    (let [codec (org.apache.commons.codec.binary.Base32.)]
-      (.decode codec ^String base32-str))))
+    (json/parse-stream-strict reader true)))
 
 (defn expected-value->clojure
   "Convert the expected value format from the test suite to our Clojure representation"
@@ -39,7 +33,7 @@
 
     ;; Handle binary with __type metadata - decode base32 to actual bytes for comparison
     (and (map? value) (= (:__type value) "binary"))
-    {:type :bytes :value (base32->bytes (:value value))}
+    {:type :bytes :value (b32/decode (:value value))}
 
     ;; Handle display strings with __type metadata
     (and (map? value) (= (:__type value) "displaystring"))
