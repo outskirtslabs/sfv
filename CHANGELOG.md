@@ -7,6 +7,7 @@ This project uses [**Break Versioning**](https://www.taoensso.com/break-versioni
 ## [UNRELEASED]
 
 - Removed references in docstrings to old functions that existed in an unreleased version
+- Reduced stdout during test suite execution
 
 ## `v0.1.0` (2025-09-08)
 

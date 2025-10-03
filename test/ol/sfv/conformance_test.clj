@@ -5,7 +5,7 @@
    [alphabase.base32 :as b32]
    [cheshire.core :as json]
    [clojure.java.io :as io]
-   [clojure.pprint :as pp]
+   ;;[clojure.pprint :as pp]
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [clojure.walk :as walk]
@@ -110,10 +110,10 @@
 
 (defn run-parse-test
   "Run a single parsing test case"
-  [{:keys [name raw header_type expected must_fail] :as t}]
+  [{:keys [name raw header_type expected must_fail] :as _t}]
   (testing (str "Parse test: " name)
-    (println "conformance test definition:")
-    (pp/pprint t)
+    ;;(println "conformance test definition:")
+    ;;(pp/pprint t)
     (let [input (if (= 1 (count raw))
                   (first raw)
                   (impl/combine-field-lines raw))]
@@ -132,10 +132,10 @@
 
 (defn run-serialize-test
   "Run a single serialization test case"
-  [{:keys [name header_type expected canonical must_fail] :as t}]
+  [{:keys [name header_type expected canonical must_fail] :as _t}]
   (testing (str "Serialize test: " name)
-    (println "conformance test definition:")
-    (pp/pprint t)
+    ;;(println "conformance test definition:")
+    ;;(pp/pprint t)
     (let [input-clojure (case header_type
                           "item" (expected-item->clojure expected)
                           "list" (expected-list->clojure expected)
@@ -159,10 +159,10 @@
 
 (defn run-serialize-conformance-test
   "Run a round-trip serialization test for a conformance test case"
-  [{:keys [name raw header_type canonical] :as t}]
+  [{:keys [name raw header_type canonical] :as _t}]
   (testing (str "Serialize conformance test: " name)
-    (println "conformance test definition:")
-    (pp/pprint t)
+    ;;(println "conformance test definition:")
+    ;;(pp/pprint t)
     (let [input (if (= 1 (count raw))
                   (first raw)
                   (impl/combine-field-lines raw))
