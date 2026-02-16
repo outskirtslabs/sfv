@@ -1,0 +1,726 @@
+= ol.sfv
+
+RFC 9651 Structured Field Values for HTTP.
+
+See the project website for info on motivation and design:
+<https://github.com/outskirtslabs/sfv>
+
+This ns provides parsing and serialization of Structured Fields containing
+Items, Lists, and Dictionaries with Parameters. Returns precise AST
+representations that round-trip byte-for-byte with RFC 9651 strings.
+
+Primary functions: <<parse,`parse`>>, <<parse-item,`parse-item`>>, <<parse-list,`parse-list`>>, <<parse-dict,`parse-dict`>>,
+<<serialize,`serialize`>>
+
+## Conventions
+
+- `s-or-bytes`: Input string or byte array (decoded as ascii) containing HTTP field value
+- `field-type`: One of `:item`, `:list`, or `:dict` specifying the top-level structure
+- `:bare`: The raw value within an Item (Integer, Decimal, String, Token, Byte Sequence, Boolean, Date, or Display String)
+
+## Primitive Types
+
+Each Item's `:bare` is one of these RFC 9651 types:
+
+| SFV type       | Header                         | AST example                                | Clojure type (`:value`)               |
+|----------------|--------------------------------|--------------------------------------------|---------------------------------------|
+| Integer        | `42`, `-17`, `999999999999999` | `{:type :integer :value 1618884473}`       | `long`                                |
+| Decimal        | `3.14`, `-0.5`                 | `{:type :decimal :value 3.14M}`            | `BigDecimal`                          |
+| String         | `" hello world "`            | `{:type :string :value " hello "}`       | `java.lang.String`                    |
+| Token          | `simple-token`                 | `{:type :token :value " simple-token "}` | `String`                              |
+| Byte Sequence  | `:SGVsbG8=:`                   | `{:type :bytes :value <platform bytes>}`   | `byte[]`                              |
+| Boolean        | `?1` / `?0`                    | `{:type :boolean :value true}`             | `true` / `false`                      |
+| Date           | `@1659578233`                  | `{:type :date :value 1659578233}`          | epoch seconds as `long`               |
+| Display String | `%" Gr%c3%bc%c3%9fe "`       | `{:type :display :value " Grüße "}`      | `String` (percent-decoded, validated) |
+
+
+[#parse]
+== parse
+
+[source,clojure]
+----
+(parse field-type s-or-bytes)
+----
+
+Parse a Structured Field of the given `field-type`.
+
+Takes a `field-type` (`:list`, `:dict`, or `:item`) and a string or byte array.
+Returns an AST representation following RFC 9651.
+
+[source,clojure]
+----
+(parse :item "42")
+;; => {:type :item :bare {:type :integer :value 42} :params []}
+
+(parse :dict "max-age=3600, must-revalidate")
+;; => {:type :dict :entries [["max-age" {...}] ["must-revalidate" {...}]]}
+----
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L41-L55[source,window=_blank]
+
+'''
+
+[#parse-list]
+== parse-list
+
+[source,clojure]
+----
+(parse-list s-or-bytes)
+----
+
+Parse a Structured Field List from `s-or-bytes`.
+
+Returns a List AST with `:type :list` and `:members` vector containing Items and Inner Lists.
+
+[source,clojure]
+----
+(parse-list "apple, pear;sweet=true, orange")
+;; => {:type :list :members [...]}
+----
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L57-L67[source,window=_blank]
+
+'''
+
+[#parse-dict]
+== parse-dict
+
+[source,clojure]
+----
+(parse-dict s-or-bytes)
+----
+
+Parse a Structured Field Dictionary from `s-or-bytes`.
+
+Returns a Dictionary AST with `:type :dict` and `:entries` as ordered key-value pairs.
+Each entry maps from a key to either an Item or Inner List.
+
+[source,clojure]
+----
+(parse-dict "max-age=3600, must-revalidate")
+;; => {:type :dict :entries [["max-age" {...}] ["must-revalidate" {...}]]}
+----
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L69-L80[source,window=_blank]
+
+'''
+
+[#parse-item]
+== parse-item
+
+[source,clojure]
+----
+(parse-item s-or-bytes)
+----
+
+Parse a Structured Field Item from `s-or-bytes`.
+
+Returns an Item AST with `:type :item`, `:bare` value, and `:params` Parameters.
+The bare value can be Integer, Decimal, String, Token, Byte Sequence, Boolean, Date, or Display String.
+
+[source,clojure]
+----
+(parse-item "42")
+;; => {:type :item :bare {:type :integer :value 42} :params []}
+
+(parse-item "pear;sweet")
+;; => {:type :item :bare {:type :token :value "pear"} :params `"sweet" {...}`}
+----
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L82-L96[source,window=_blank]
+
+'''
+
+[#serialize]
+== serialize
+
+[source,clojure]
+----
+(serialize x)
+----
+
+Serialize a Structured Field AST `x` to its string representation.
+
+Takes any parsed AST (Item, List, or Dictionary) and returns the RFC 9651 string.
+
+[source,clojure]
+----
+(serialize {:type :item :bare {:type :integer :value 42} :params []})
+;; => "42"
+
+(serialize-list {:type :list :members [...]})
+;; => "apple, pear;sweet=true, orange"
+
+(serialize-dict {:type :dict :entries [["max-age" {...}] ["must-revalidate" {...}]]})
+;; => "max-age=3600, must-revalidate"
+----
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L98-L114[source,window=_blank]
+
+'''
+
+[#token]
+== token
+
+[source,clojure]
+----
+(token s)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L117-L118[source,window=_blank]
+
+'''
+
+[#token-QMARK-]
+== token?
+
+[source,clojure]
+----
+(token? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L120-L121[source,window=_blank]
+
+'''
+
+[#decimal]
+== decimal
+
+[source,clojure]
+----
+(decimal x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L123-L124[source,window=_blank]
+
+'''
+
+[#decimal-QMARK-]
+== decimal?
+
+[source,clojure]
+----
+(decimal? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L125-L126[source,window=_blank]
+
+'''
+
+[#integer]
+== integer
+
+[source,clojure]
+----
+(integer n)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L128-L129[source,window=_blank]
+
+'''
+
+[#integer-QMARK-]
+== integer?
+
+[source,clojure]
+----
+(integer? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L131-L132[source,window=_blank]
+
+'''
+
+[#string]
+== string
+
+[source,clojure]
+----
+(string s)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L134-L135[source,window=_blank]
+
+'''
+
+[#string-QMARK-]
+== string?
+
+[source,clojure]
+----
+(string? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L137-L138[source,window=_blank]
+
+'''
+
+[#dstring]
+== dstring
+
+[source,clojure]
+----
+(dstring s)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L140-L141[source,window=_blank]
+
+'''
+
+[#dstring-QMARK-]
+== dstring?
+
+[source,clojure]
+----
+(dstring? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L143-L144[source,window=_blank]
+
+'''
+
+[#bytes]
+== bytes
+
+[source,clojure]
+----
+(bytes b)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L146-L147[source,window=_blank]
+
+'''
+
+[#bytes-QMARK-]
+== bytes?
+
+[source,clojure]
+----
+(bytes? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L149-L150[source,window=_blank]
+
+'''
+
+[#bool]
+== bool
+
+[source,clojure]
+----
+(bool b)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L152-L153[source,window=_blank]
+
+'''
+
+[#bool-QMARK-]
+== bool?
+
+[source,clojure]
+----
+(bool? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L155-L156[source,window=_blank]
+
+'''
+
+[#date]
+== date
+
+[source,clojure]
+----
+(date seconds)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L158-L159[source,window=_blank]
+
+'''
+
+[#date-QMARK-]
+== date?
+
+[source,clojure]
+----
+(date? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L161-L162[source,window=_blank]
+
+'''
+
+[#params]
+== params
+
+[source,clojure]
+----
+(params & kvs)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L165-L166[source,window=_blank]
+
+'''
+
+[#param-get]
+== param-get
+
+[source,clojure]
+----
+(param-get ps k)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L168-L169[source,window=_blank]
+
+'''
+
+[#param-keys]
+== param-keys
+
+[source,clojure]
+----
+(param-keys ps)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L171-L172[source,window=_blank]
+
+'''
+
+[#item]
+== item
+
+[source,clojure]
+----
+(item bare)
+(item bare ps)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L175-L179[source,window=_blank]
+
+'''
+
+[#item-QMARK-]
+== item?
+
+[source,clojure]
+----
+(item? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L181-L182[source,window=_blank]
+
+'''
+
+[#item-bare]
+== item-bare
+
+[source,clojure]
+----
+(item-bare i)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L184-L185[source,window=_blank]
+
+'''
+
+[#item-params]
+== item-params
+
+[source,clojure]
+----
+(item-params i)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L187-L188[source,window=_blank]
+
+'''
+
+[#inner-list]
+== inner-list
+
+[source,clojure]
+----
+(inner-list items)
+(inner-list items ps)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L191-L195[source,window=_blank]
+
+'''
+
+[#inner-list-QMARK-]
+== inner-list?
+
+[source,clojure]
+----
+(inner-list? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L197-L198[source,window=_blank]
+
+'''
+
+[#inner-items]
+== inner-items
+
+[source,clojure]
+----
+(inner-items il)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L200-L201[source,window=_blank]
+
+'''
+
+[#inner-params]
+== inner-params
+
+[source,clojure]
+----
+(inner-params il)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L203-L204[source,window=_blank]
+
+'''
+
+[#sf-list]
+== sf-list
+
+[source,clojure]
+----
+(sf-list members)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L207-L208[source,window=_blank]
+
+'''
+
+[#sf-list-QMARK-]
+== sf-list?
+
+[source,clojure]
+----
+(sf-list? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L210-L211[source,window=_blank]
+
+'''
+
+[#list-members]
+== list-members
+
+[source,clojure]
+----
+(list-members l)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L213-L214[source,window=_blank]
+
+'''
+
+[#sf-dict]
+== sf-dict
+
+[source,clojure]
+----
+(sf-dict entries)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L217-L218[source,window=_blank]
+
+'''
+
+[#sf-dict-QMARK-]
+== sf-dict?
+
+[source,clojure]
+----
+(sf-dict? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L220-L221[source,window=_blank]
+
+'''
+
+[#dict-keys]
+== dict-keys
+
+[source,clojure]
+----
+(dict-keys d)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L223-L224[source,window=_blank]
+
+'''
+
+[#dict-get]
+== dict-get
+
+[source,clojure]
+----
+(dict-get d k)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L226-L227[source,window=_blank]
+
+'''
+
+[#dict--GT-pairs]
+== dict->pairs
+
+[source,clojure]
+----
+(dict->pairs d)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L229-L230[source,window=_blank]
+
+'''
+
+[#flag]
+== flag
+
+[source,clojure]
+----
+(flag)
+(flag ps)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L233-L237[source,window=_blank]
+
+'''
+
+[#flag-QMARK-]
+== flag?
+
+[source,clojure]
+----
+(flag? x)
+----
+
+
+
+[.api-source]
+link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L239-L240[source,window=_blank]
