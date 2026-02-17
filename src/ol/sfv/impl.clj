@@ -1,6 +1,6 @@
 ;; Copyright © 2025 Casey Link <casey@outskirtslabs.com>
 ;; SPDX-License-Identifier: MIT
-(ns ol.sfv.impl
+(ns ^:no-doc ol.sfv.impl
   (:refer-clojure :exclude [integer? decimal? string? bytes bytes?])
   (:require [clojure.string :as str])
   (:import (java.nio.charset StandardCharsets)
