@@ -135,7 +135,7 @@ expose a precise tree that round-trips byte-for-byte. This is important
 because Structured Fields carry ordering information that ordinary
 Clojure maps can’t reliably preserve across platforms and sizes.
 
-==== Primitive types
+=== Primitive types
 
 RFC 9651 defines several primitive types, all supported.
 
@@ -175,7 +175,7 @@ and are parsed to `BigDecimal` to avoid float rounding.
 * Byte sequences are base64 inside the header; we give you the decoded
 bytes.
 
-==== Container types
+=== Container types
 
 * *Item* — a *bare value* plus optional *parameters*
 +
@@ -211,7 +211,7 @@ with its own parameters
 
 Keys are parsed as lower-case identifiers per the spec.
 
-==== Why not plain Clojure maps?
+=== Why not plain Clojure maps?
 
 Dictionaries and parameter lists in SFV have a defined member order.
 That order may or may not be semantically meaningful, that depends on
@@ -222,7 +222,7 @@ parameter lists as vectors of ++[++k v++]++ pairs. That’s portable,
 preserves order, and lets you implement whatever key semantics you need
 at a higher level.
 
-==== Parameters
+=== Parameters
 
 Parameters attach metadata to an Item or an Inner List:
 
@@ -242,7 +242,7 @@ pairs in the order seen:
 same `:type`/`:value` shapes as the table above
 * Ordering is preserved for round-trip fidelity
 
-==== Dictionaries
+=== Dictionaries
 
 Dictionaries map from a key to either an Item or an Inner List. We keep
 them as an ordered vector of entries:
