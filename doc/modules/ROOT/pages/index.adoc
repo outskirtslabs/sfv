@@ -7,8 +7,8 @@ ____
 
 https://github.com/outskirtslabs/sfv/actions[image:https://github.com/outskirtslabs/sfv/actions/workflows/ci.yml/badge.svg[Build
 Status]]
-https://cljdoc.org/d/com.outskirtslabs/sfv[image:https://cljdoc.org/badge/com.outskirtslabs/sfv[cljdoc
-badge]]
+image:https://img.shields.io/badge/doc-outskirtslabs-orange.svg[doc,link=http://docs.outskirtslabs.com/ol.sfv/0.1/]
+image:https://img.shields.io/badge/status-stable-brightgreen.svg[status: stable,link=http://docs.outskirtslabs.com/open-source-vital-signs#stable]
 https://clojars.org/com.outskirtslabs/sfv[image:https://img.shields.io/clojars/v/com.outskirtslabs/sfv.svg[Clojars
 Project]]
 
@@ -35,6 +35,8 @@ serialization with zero deps
 strings
 * Validation and error reporting
 * JVM/Graal target
+
+Project status: *https://docs.outskirtslabs.com/open-source-vital-signs#stable[Stable]*.
 
 == Installation
 
@@ -126,6 +128,12 @@ strings
                                          :params [["size" {:type :integer :value 4}]]}]
             :params []}]}
 ----
+
+== Documentation
+
+* https://docs.outskirtslabs.com/ol.sfv/0.1/[Docs]
+* https://docs.outskirtslabs.com/ol.sfv/0.1/api[API Reference]
+* https://github.com/outskirtslabs/sfv/issues[Support via GitHub Issues]
 
 == Data Types
 
