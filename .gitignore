@@ -15,3 +15,4 @@ target/
 extra/
 .direnv
 example-project
+.env
