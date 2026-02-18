@@ -1,0 +1,18 @@
+{:manifest/version 1,
+ :project
+ {:id "ol.sfv",
+  :coord "com.outskirtslabs/sfv",
+  :description
+  "A 0-dependency Clojure library for parsing and generating Structured Field Values for HTTP (RFC 9651/8941)",
+  :license "MIT",
+  :platforms [:clj],
+  :status :stable,
+  :created "2026-02-16",
+  :version "0.1.0"},
+ :docs
+ {:component "ol.sfv",
+  :title "ol.sfv",
+  :version "next",
+  :prerelease true,
+  :start-path "doc"},
+ :repo {:url "https://github.com/outskirtslabs/sfv"}}
