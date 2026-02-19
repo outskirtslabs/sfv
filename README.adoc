@@ -5,8 +5,8 @@ A 0-dependency Clojure library for parsing and generating Structured
 Field Values for HTTP (RFC 9651/8941)
 ____
 
-image:https://img.shields.io/badge/doc-outskirtslabs-orange.svg[doc,link=http://docs.outskirtslabs.com/ol.sfv/0.1/]
-image:https://img.shields.io/badge/status-stable-brightgreen.svg[status: stable,link=http://docs.outskirtslabs.com/open-source-vital-signs#stable]
+image:https://img.shields.io/badge/doc-outskirtslabs-orange.svg[doc,link=https://docs.outskirtslabs.com/ol.sfv/0.1/]
+image:https://img.shields.io/badge/status-stable-brightgreen.svg[status: stable,link=https://docs.outskirtslabs.com/open-source-vital-signs#stable]
 https://github.com/outskirtslabs/sfv/actions[image:https://github.com/outskirtslabs/sfv/actions/workflows/ci.yml/badge.svg[Build
 Status]]
 https://clojars.org/com.outskirtslabs/sfv[image:https://img.shields.io/clojars/v/com.outskirtslabs/sfv.svg[Clojars

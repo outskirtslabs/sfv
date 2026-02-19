@@ -1,2 +1,2 @@
-* xref:api.adoc[API Reference]
-** xref:api/ol-sfv.adoc[ol.sfv]
+.API Reference
+* xref:api/ol-sfv.adoc[ol.sfv]
