@@ -6,7 +6,8 @@
  :tasks {:requires         ([babashka.fs :as fs]
                             [clojure.string :as str]
                             [babashka.tasks :refer [shell]]
-                            [ol.bb-tasks.gen-docs :as gen-docs])
+                            [ol.bb-tasks.gen-docs :as gen-docs]
+                            [ol.bb-tasks.publish-clojars :as publish-clojars])
          test              (apply clojure "-M:kaocha" *command-line-args*)
          test.jvm          (clojure "-M:kaocha" "--focus" ":unit-jvm")
          deps-tree         (clojure "-X:deps tree :aliases '[:dev]'")
@@ -27,7 +28,7 @@
                   :task             (shell "clojure -T:build clean")}
          publish {:doc     "Publish the clojure sdk libs to clojars"
                   :depends [jar]
-                  :task    (clojure "-T:build deploy")}
+                  :task    (publish-clojars/publish!)}
          ci       {:depends [test fmt.check lint]}
          gen-docs {:doc  "Generate all Antora documentation"
                    :task (gen-docs/generate!)}}}
