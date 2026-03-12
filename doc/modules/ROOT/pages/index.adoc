@@ -42,6 +42,7 @@ Project status: *https://docs.outskirtslabs.com/open-source-vital-signs#stable[S
 
 [source,clojure]
 ----
+;; deps.edn
 {:deps {com.outskirtslabs/sfv {:mvn/version "0.1.0"}}}
 
 ;; Leiningen
