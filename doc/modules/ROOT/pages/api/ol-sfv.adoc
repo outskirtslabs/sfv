@@ -23,16 +23,18 @@ Primary functions: <<parse,`parse`>>, <<parse-item,`parse-item`>>, <<parse-list,
 
 Each Item's `:bare` is one of these RFC 9651 types:
 
-| SFV type       | Header                         | AST example                                | Clojure type (`:value`)               |
-|----------------|--------------------------------|--------------------------------------------|---------------------------------------|
-| Integer        | `42`, `-17`, `999999999999999` | `{:type :integer :value 1618884473}`       | `long`                                |
-| Decimal        | `3.14`, `-0.5`                 | `{:type :decimal :value 3.14M}`            | `BigDecimal`                          |
-| String         | `" hello world "`            | `{:type :string :value " hello "}`       | `java.lang.String`                    |
-| Token          | `simple-token`                 | `{:type :token :value " simple-token "}` | `String`                              |
-| Byte Sequence  | `:SGVsbG8=:`                   | `{:type :bytes :value <platform bytes>}`   | `byte[]`                              |
-| Boolean        | `?1` / `?0`                    | `{:type :boolean :value true}`             | `true` / `false`                      |
-| Date           | `@1659578233`                  | `{:type :date :value 1659578233}`          | epoch seconds as `long`               |
-| Display String | `%" Gr%c3%bc%c3%9fe "`       | `{:type :display :value " Grüße "}`      | `String` (percent-decoded, validated) |
+[options="header"]
+|===
+| SFV type | Header | AST example | Clojure type (`:value`)
+| Integer | `42`, `-17`, `999999999999999` | `{:type :integer :value 1618884473}` | `long`
+| Decimal | `3.14`, `-0.5` | `{:type :decimal :value 3.14M}` | `BigDecimal`
+| String | `" hello world "` | `{:type :string :value " hello "}` | `java.lang.String`
+| Token | `simple-token` | `{:type :token :value " simple-token "}` | `String`
+| Byte Sequence | `:SGVsbG8=:` | `{:type :bytes :value <platform bytes>}` | `byte[]`
+| Boolean | `?1` / `?0` | `{:type :boolean :value true}` | `true` / `false`
+| Date | `@1659578233` | `{:type :date :value 1659578233}` | epoch seconds as `long`
+| Display String | `%" Gr%c3%bc%c3%9fe "` | `{:type :display :value " Grüße "}` | `String` (percent-decoded, validated)
+|===
 
 
 [#parse]
