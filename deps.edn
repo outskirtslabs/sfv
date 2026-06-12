@@ -6,8 +6,8 @@
                                   mvxcvi/alphabase    {:mvn/version "3.0.185"}}
                     :main-opts   ["-m" "kaocha.runner"]}
            :dev    {:extra-paths ["dev"]}
-           :build  {:deps       {io.github.clojure/tools.build {:mvn/version "0.10.13"}
-                                 slipset/deps-deploy           {:mvn/version "0.2.2"}}
+           :build  {:deps       {io.github.clojure/tools.build {:mvn/version "0.10.14"}
+                                 slipset/deps-deploy           {:mvn/version "0.2.5"}}
                     :ns-default build}
            :neil   {:project {:name        com.outskirtslabs/sfv
                               :url         "https://github.com/outskirtslabs/sfv"
