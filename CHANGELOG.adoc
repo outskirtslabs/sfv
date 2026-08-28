@@ -10,6 +10,8 @@ Versioning*].
 * Removed references in docstrings to old functions that existed in an
 unreleased version
 * Reduced stdout during test suite execution
+* Fixed Item parsing to reject trailing input and accept documented keyword
+field types
 
 [[v010-2025-09-08]]
 == `v0.1.0` (2025-09-08)

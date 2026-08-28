@@ -2,7 +2,7 @@
 ;; SPDX-License-Identifier: MIT
 (ns ol.sfv.api-test
   "tests for all the public api functions"
-  (:require [clojure.test :refer [deftest testing is are]]
+  (:require [clojure.test :refer [are deftest is testing]]
             [ol.sfv :as sfv]))
 
 (deftest parsing-functions-test
@@ -29,7 +29,23 @@
                         "item" (sfv/item? (sfv/parse type input)))
       "list"       "\"a\", \"b\""
       "dictionary" "a=1, b=2"
-      "item"       "42")))
+      "item"       "42"))
+
+  (testing "parse with field-type keywords"
+    (are [type input] (case type
+                        :list (sfv/sf-list? (sfv/parse type input))
+                        :dict (sfv/sf-dict? (sfv/parse type input))
+                        :item (sfv/item? (sfv/parse type input)))
+      :list "\"a\", \"b\""
+      :dict "a=1, b=2"
+      :item "42"))
+
+  (testing "parse-item consumes the complete input"
+    (is (= (sfv/item (sfv/integer 42))
+           (sfv/parse-item " 42 ")))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          #"Unexpected characters after item"
+                          (sfv/parse-item "42 trailing")))))
 
 (deftest serialization-functions-test
   (testing "serialize item"

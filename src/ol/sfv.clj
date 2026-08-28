@@ -93,7 +93,7 @@
   ;; => {:type :item :bare {:type :token :value \"pear\"} :params [[\"sweet\" {...}]]}
   ```"
   [s-or-bytes]
-  (first (impl/parse-item (impl/init-ctx s-or-bytes))))
+  (impl/parse :item s-or-bytes))
 
 (defn serialize
   "Serialize a Structured Field AST `x` to its string representation.

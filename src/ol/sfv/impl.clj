@@ -710,15 +710,15 @@
         (parse-error {:i invalid-pos} "parse error: Invalid character in field line")
         (parse-error {:i 0} "No field type specified")))
     (case field-type
-      "list" (parse-list s-or-bytes)
-      "dictionary" (parse-dict s-or-bytes)
-      "item" (let [ctx (init-ctx s-or-bytes)
-                   ctx (skip-sp ctx)
-                   [item ctx'] (parse-item ctx)
-                   ctx' (skip-sp ctx')]
-               (when-not (eof? ctx')
-                 (parse-error ctx' "Unexpected characters after item"))
-               item)
+      ("list" :list) (parse-list s-or-bytes)
+      ("dictionary" :dict) (parse-dict s-or-bytes)
+      ("item" :item) (let [ctx (init-ctx s-or-bytes)
+                           ctx (skip-sp ctx)
+                           [item ctx'] (parse-item ctx)
+                           ctx' (skip-sp ctx')]
+                       (when-not (eof? ctx')
+                         (parse-error ctx' "Unexpected characters after item"))
+                       item)
       (parse-error {:i 0} (str "Unknown field type: " field-type)))))
 
 ;; ---------------------------------------------------------------------------
