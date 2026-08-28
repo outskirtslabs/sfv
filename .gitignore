@@ -12,3 +12,5 @@ extra/
 .direnv
 example-project
 .env
+.scratch-org/
+docs/agents
