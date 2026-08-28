@@ -32,7 +32,7 @@
   | Byte Sequence  | `:SGVsbG8=:`                   | `{:type :bytes :value <platform bytes>}`   | `byte[]`                              |
   | Boolean        | `?1` / `?0`                    | `{:type :boolean :value true}`             | `true` / `false`                      |
   | Date           | `@1659578233`                  | `{:type :date :value 1659578233}`          | epoch seconds as `long`               |
-  | Display String | `%\" Gr%c3%bc%c3%9fe \"`       | `{:type :display :value \" Grüße \"}`      | `String` (percent-decoded, validated) |
+  | Display String | `%\" Gr%c3%bc%c3%9fe \"`       | `{:type :dstring :value \" Grüße \"}`      | `String` (percent-decoded, validated) |
   "
 
   (:refer-clojure :exclude [list integer? decimal? string? bytes bytes?])

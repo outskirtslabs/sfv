@@ -68,7 +68,7 @@ Project status: *https://docs.outskirtslabs.com/open-source-vital-signs#stable[S
 {:type :item :bare {:type :dstring :value "Grüße"} :params []}
 
 (sfv/serialize {:type :item :bare {:type :dstring :value "السلام عليكم"} :params []})
-"\"%d8%a7%d9%84%d8%b3%d9%84%d8%a7%d9%85 %d8%b9%d9%84%d9%8a%d9%83%d9%85\""
+"%\"%d8%a7%d9%84%d8%b3%d9%84%d8%a7%d9%85 %d8%b9%d9%84%d9%8a%d9%83%d9%85\""
 
 ;; Dates
 (sfv/parse-item "@1659578233")
@@ -174,7 +174,7 @@ Each Item’s `:bare` is one of the following:
 seconds as `long`
 
 |Display String |`%"Gr%c3%bc%c3%9fe"`
-|`++{++:type :display :value "Grüße"}` |`String` (percent-decoded,
+|`++{++:type :dstring :value "Grüße"}` |`String` (percent-decoded,
 validated)
 |===
 
