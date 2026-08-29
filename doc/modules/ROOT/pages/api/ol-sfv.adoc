@@ -63,7 +63,7 @@ Returns an AST representation following RFC 9651.
 ----
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L41-L55[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L41-L55[source,window=_blank]
 
 '''
 
@@ -89,7 +89,7 @@ Returns a List AST with `:type :list` and `:members` vector containing Items and
 ----
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L57-L67[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L57-L67[source,window=_blank]
 
 '''
 
@@ -116,7 +116,7 @@ Each entry maps from a key to either an Item or Inner List.
 ----
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L69-L80[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L69-L80[source,window=_blank]
 
 '''
 
@@ -146,7 +146,7 @@ The bare value can be Integer, Decimal, String, Token, Byte Sequence, Boolean, D
 ----
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L82-L96[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L82-L96[source,window=_blank]
 
 '''
 
@@ -178,7 +178,7 @@ Takes any parsed AST (Item, List, or Dictionary) and returns the RFC 9651 string
 ----
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L98-L114[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L98-L114[source,window=_blank]
 
 '''
 
@@ -195,7 +195,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L98-L114[sour
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L117-L118[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L117-L118[source,window=_blank]
 
 '''
 
@@ -212,7 +212,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L117-L118[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L120-L121[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L120-L121[source,window=_blank]
 
 '''
 
@@ -229,7 +229,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L120-L121[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L123-L124[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L123-L124[source,window=_blank]
 
 '''
 
@@ -246,7 +246,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L123-L124[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L125-L126[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L125-L126[source,window=_blank]
 
 '''
 
@@ -263,7 +263,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L125-L126[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L128-L129[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L128-L129[source,window=_blank]
 
 '''
 
@@ -280,7 +280,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L128-L129[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L131-L132[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L131-L132[source,window=_blank]
 
 '''
 
@@ -297,7 +297,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L131-L132[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L134-L135[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L134-L135[source,window=_blank]
 
 '''
 
@@ -314,7 +314,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L134-L135[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L137-L138[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L137-L138[source,window=_blank]
 
 '''
 
@@ -331,7 +331,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L137-L138[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L140-L141[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L140-L141[source,window=_blank]
 
 '''
 
@@ -348,7 +348,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L140-L141[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L143-L144[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L143-L144[source,window=_blank]
 
 '''
 
@@ -365,7 +365,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L143-L144[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L146-L147[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L146-L147[source,window=_blank]
 
 '''
 
@@ -382,7 +382,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L146-L147[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L149-L150[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L149-L150[source,window=_blank]
 
 '''
 
@@ -399,7 +399,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L149-L150[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L152-L153[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L152-L153[source,window=_blank]
 
 '''
 
@@ -416,7 +416,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L152-L153[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L155-L156[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L155-L156[source,window=_blank]
 
 '''
 
@@ -433,7 +433,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L155-L156[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L158-L159[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L158-L159[source,window=_blank]
 
 '''
 
@@ -450,7 +450,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L158-L159[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L161-L162[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L161-L162[source,window=_blank]
 
 '''
 
@@ -467,7 +467,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L161-L162[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L165-L166[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L165-L166[source,window=_blank]
 
 '''
 
@@ -484,7 +484,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L165-L166[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L168-L169[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L168-L169[source,window=_blank]
 
 '''
 
@@ -501,7 +501,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L168-L169[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L171-L172[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L171-L172[source,window=_blank]
 
 '''
 
@@ -519,7 +519,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L171-L172[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L175-L179[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L175-L179[source,window=_blank]
 
 '''
 
@@ -536,7 +536,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L175-L179[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L181-L182[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L181-L182[source,window=_blank]
 
 '''
 
@@ -553,7 +553,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L181-L182[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L184-L185[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L184-L185[source,window=_blank]
 
 '''
 
@@ -570,7 +570,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L184-L185[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L187-L188[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L187-L188[source,window=_blank]
 
 '''
 
@@ -588,7 +588,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L187-L188[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L191-L195[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L191-L195[source,window=_blank]
 
 '''
 
@@ -605,7 +605,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L191-L195[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L197-L198[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L197-L198[source,window=_blank]
 
 '''
 
@@ -622,7 +622,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L197-L198[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L200-L201[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L200-L201[source,window=_blank]
 
 '''
 
@@ -639,7 +639,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L200-L201[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L203-L204[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L203-L204[source,window=_blank]
 
 '''
 
@@ -656,7 +656,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L203-L204[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L207-L208[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L207-L208[source,window=_blank]
 
 '''
 
@@ -673,7 +673,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L207-L208[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L210-L211[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L210-L211[source,window=_blank]
 
 '''
 
@@ -690,7 +690,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L210-L211[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L213-L214[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L213-L214[source,window=_blank]
 
 '''
 
@@ -707,7 +707,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L213-L214[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L217-L218[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L217-L218[source,window=_blank]
 
 '''
 
@@ -724,7 +724,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L217-L218[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L220-L221[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L220-L221[source,window=_blank]
 
 '''
 
@@ -741,7 +741,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L220-L221[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L223-L224[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L223-L224[source,window=_blank]
 
 '''
 
@@ -758,7 +758,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L223-L224[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L226-L227[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L226-L227[source,window=_blank]
 
 '''
 
@@ -775,7 +775,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L226-L227[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L229-L230[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L229-L230[source,window=_blank]
 
 '''
 
@@ -793,7 +793,7 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L229-L230[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L233-L237[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L233-L237[source,window=_blank]
 
 '''
 
@@ -810,4 +810,4 @@ link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L233-L237[sou
 
 
 [.api-source]
-link:https://github.com/outskirtslabs/sfv/blob/main/src/ol/sfv.clj#L239-L240[source,window=_blank]
+link:https://github.com/outskirtslabs/sfv/blob/v0.2.x/src/ol/sfv.clj#L239-L240[source,window=_blank]

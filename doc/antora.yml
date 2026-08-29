@@ -1,7 +1,6 @@
 ---
 name: ol.sfv
 title: ol.sfv
-version: next
-prerelease: true
+version: '0.2'
 nav:
   - modules/ROOT/nav.adoc

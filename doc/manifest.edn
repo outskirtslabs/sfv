@@ -12,7 +12,7 @@
  :docs
  {:component "ol.sfv",
   :title "ol.sfv",
-  :version "next",
-  :prerelease true,
+  :version "0.2",
+  :prerelease false,
   :start-path "doc"},
  :repo {:url "https://github.com/outskirtslabs/sfv"}}
