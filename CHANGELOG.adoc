@@ -7,11 +7,16 @@ Versioning*].
 
 == ++[++UNRELEASED++]++
 
+[[v020-2026-08-29]]
+== `v0.2.0` (2026-08-29)
+
+* Corrected Display String examples in the documentation
+* Fixed Item parsing to reject trailing input and accept documented keyword
+field types
 * Removed references in docstrings to old functions that existed in an
 unreleased version
 * Reduced stdout during test suite execution
-* Fixed Item parsing to reject trailing input and accept documented keyword
-field types
+* Added self-contained Antora documentation and API references (https://docs.outskirtslabs.com/sfv)
 
 [[v010-2025-09-08]]
 == `v0.1.0` (2025-09-08)

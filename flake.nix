@@ -25,7 +25,7 @@
         clj-helpers.lib.mkCljLib {
           inherit pkgs;
           name = "sfv";
-          version = "0.1.0";
+          version = "0.2.0";
           src = ./.;
           jdk = pkgs.jdk21;
           extraSrcExcludes = [ "example-project" ];
